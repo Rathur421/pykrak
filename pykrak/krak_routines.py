@@ -10,11 +10,10 @@ Institution: Scripps Institution of Oceanography, UC San Diego
 
 import numpy as np
 from matplotlib import pyplot as plt
-from numba import njit
+
 from pykrak import attn_pert as ap
 
 
-@njit
 def initialize(
     h_arr,
     ind_arr,
@@ -152,7 +151,6 @@ def initialize(
     )
 
 
-@njit
 def get_f_g(cp, cs, rho, x, omega2, mode_count, complex_flag):
     if rho == 0.0:  # Vacuum
         f = 1.0
@@ -193,7 +191,6 @@ def get_f_g(cp, cs, rho, x, omega2, mode_count, complex_flag):
     return f, g, yV
 
 
-@njit
 def elastic_up(
     x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF
 ):
@@ -269,7 +266,6 @@ def elastic_up(
     return yV, iPower
 
 
-@njit
 def elastic_down(
     x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF
 ):
@@ -345,7 +341,6 @@ def elastic_down(
     return yV, iPower
 
 
-@njit
 def get_bc_impedance(
     x,
     omega2,
@@ -447,7 +442,6 @@ def get_bc_impedance(
     return f, g, iPower, mode_count
 
 
-@njit
 def acoustic_layers(
     x,
     f,
@@ -521,7 +515,6 @@ def acoustic_layers(
     return f, g, iPower, mode_count
 
 
-@njit
 def funct(x, args):
     """
     funct(x) = 0 is the dispersion relation
@@ -658,7 +651,6 @@ def funct(x, args):
     return Delta, iPower, mode_count
 
 
-@njit
 def bisection(x_min, x_max, M, args):
     """
     Returns isolating intervals (xL, xR) for each eigenvalue
@@ -709,7 +701,6 @@ def bisection(x_min, x_max, M, args):
     return x_l, x_r
 
 
-@njit
 def solve1(args, h_v):
     """
     Solve for eigenvalues using Sturm sequences and Brent's method.
@@ -817,7 +808,6 @@ def solve1(args, h_v):
     return ev_mat, m
 
 
-@njit
 def solve2(args, h_v, M):
     """
     h_v is array of mesh sizes
@@ -901,7 +891,6 @@ def solve2(args, h_v, M):
     return ev_mat, mode
 
 
-@njit
 def root_finder_secant_real(x2, tolerance, max_iterations, func, args):
     """
     Secant method for finding roots of a real-valued function.
@@ -946,7 +935,6 @@ def root_finder_secant_real(x2, tolerance, max_iterations, func, args):
     return x2, max_iterations, "Failure to converge in RootFinderSecant"
 
 
-@njit
 def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
     """
     Secant method for finding roots of a complex-valued function.
@@ -991,7 +979,6 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
     return x2, max_iterations, "Failure to converge in RootFinderSecant"
 
 
-@njit
 def zbrent(a, b, t, args):
     """
     Licensing:
@@ -1089,7 +1076,6 @@ def zbrent(a, b, t, args):
     return value
 
 
-@njit
 def inverse_iter(d, e, max_iteration=2000):
     """
     Perform inverse iteration to compute an eigenvector.
@@ -1188,7 +1174,6 @@ def inverse_iter(d, e, max_iteration=2000):
     return eigenvector, i_error
 
 
-@njit
 def normalize(phi, iTurningPoint, x, args, z):
     """
     Normalize the eigenvector phi and compute perturbations from attenuation and group velocity.
@@ -1390,7 +1375,6 @@ def normalize(phi, iTurningPoint, x, args, z):
     return w, Perturbation_k, sg, ug
 
 
-@njit
 def get_phi(args):
     (
         omega2,
