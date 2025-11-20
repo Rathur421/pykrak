@@ -223,7 +223,7 @@ def get_f_g(
     return f, g, yV
 
 
-def _elastic_up(
+def elastic_up(
     x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp
 ):
     """
@@ -298,7 +298,7 @@ def _elastic_up(
     return yV, iPower
 
 
-def _elastic_down(
+def elastic_down(
     x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp
 ):
     """
@@ -419,7 +419,7 @@ def get_bc_impedance(
                     )
                 else:
                     i0, i1 = ind_arr[medium], ind_arr[medium + 1]
-                Yv, iPower = _elastic_down(
+                Yv, iPower = elastic_down(
                     x,
                     Yv,
                     iPower,
@@ -452,7 +452,7 @@ def get_bc_impedance(
                     )
                 else:
                     i0, i1 = ind_arr[medium], ind_arr[medium + 1]
-                Yv, iPower = _elastic_up(
+                Yv, iPower = elastic_up(
                     x,
                     Yv,
                     iPower,
