@@ -177,9 +177,9 @@ def get_f_g(
     rho: float,
     x: float,
     omega2: float,
-    mode_count,
-    complex_flag,
-    xp,
+    mode_count: int,
+    complex_flag: bool,
+    xp: ModuleType,
 ):
     if rho == 0.0:  # Vacuum
         f = xp.asarray(1.0, dtype=xp.double)
@@ -224,7 +224,20 @@ def get_f_g(
 
 
 def elastic_up(
-    x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp
+    x: float,
+    yV: Array,
+    iPower: int,
+    h: float,
+    b1: Array,
+    b2: Array,
+    b3: Array,
+    b4: Array,
+    rho_arr: Array,
+    Floor: float,
+    Roof: float,
+    iPowerR: int,
+    iPowerF: int,
+    xp: ModuleType,
 ):
     """
     Propagates up through a single elastic layer using compound matrix formulation.
@@ -299,7 +312,20 @@ def elastic_up(
 
 
 def elastic_down(
-    x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp
+    x: float,
+    yV: Array,
+    iPower: int,
+    h: float,
+    b1: Array,
+    b2: Array,
+    b3: Array,
+    b4: Array,
+    rho_arr: Array,
+    Floor: float,
+    Roof: float,
+    iPowerR: int,
+    iPowerF: int,
+    xp: ModuleType,
 ):
     """
     Propagates down through a single elastic layer using compound matrix formulation.
@@ -380,19 +406,19 @@ def get_bc_impedance(
     cp,
     cs,
     rho,
-    h_arr,
+    h_arr: Array,
     ind_arr,
-    z_arr,
-    b1,
-    b2,
-    b3,
-    b4,
-    rho_arr,
+    z_arr: Array,
+    b1: Array,
+    b2: Array,
+    b3: Array,
+    b4: Array,
+    rho_arr: Array,
     first_acoustic,
     last_acoustic,
-    mode_count,
-    complex_flag,
-    xp,
+    mode_count: int,
+    complex_flag: bool,
+    xp: ModuleType,
 ):
     """
     Compute the impedance functions for the top and bottom halfspaces
@@ -478,21 +504,21 @@ def get_bc_impedance(
 
 
 def acoustic_layers(
-    x,
-    f,
-    g,
-    iPower,
-    ind_arr,
-    h_arr,
-    z_arr,
-    b1,
-    rho_arr,
-    CountModes,
-    mode_count,
+    x: float,
+    f: float,
+    g: float,
+    iPower: int,
+    ind_arr: Array,
+    h_arr: Array,
+    z_arr: Array,
+    b1: Array,
+    rho_arr: Array,
+    CountModes: int,
+    mode_count: int,
     first_acoustic,
     last_acoustic,
 ):
-    """
+    r"""
     Shoot through acoustic layers
     from the bottom, where there is a boundary condition
     f p + g \dv{p}{z} / rho(z-) = 0
