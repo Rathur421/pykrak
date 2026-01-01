@@ -32,8 +32,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 from matplotlib import pyplot as plt
-from pykrak import interp
 from numba import jit, njit
+
+from pykrak import interp
 from pykrak.attn_pert import get_c_imag
 
 
@@ -793,7 +794,7 @@ def range_independent_check():
     plt.colorbar()
     plt.gca().invert_yaxis()
 
-    c_hs_imag = get_c_imag(c_hs, attn_hs, attn_units, 2 * np.pi * freq)
+    c_hs_imag = get_c_imag(c_hs, attn_hs, attn_units, 2 * np.pi * freq, xp=xp)
     c_hs_complex = c_hs + 1j * c_hs_imag
 
     for i in range(rgrid.size):

@@ -1,4 +1,5 @@
 import numpy as np
+from array_api_compat import size
 from matplotlib import pyplot as plt
 from numba import njit
 
@@ -36,7 +37,7 @@ def get_c_imag_npm(c_real, attn_npm, omega):
     return c_imag
 
 
-def get_c_imag(c_real, attn, attn_units, omega):
+def get_c_imag(c_real, attn, attn_units, omega, xp):
     if attn_units == "dbplam" or attn_units == "q":
         lam = c_real / (omega / (2 * np.pi))
         args = [lam]
@@ -46,13 +47,13 @@ def get_c_imag(c_real, attn, attn_units, omega):
     else:
         args = []
 
-    conv_factor = get_attn_conv_factor(attn_units, *args)
+    conv_factor = get_attn_conv_factor(attn_units, *args, xp=xp)
     attn_npm = attn * conv_factor  # this is attenuation in nepers/meter
     c_imag = attn_npm * c_real**2 / omega
     return c_imag
 
 
-def get_attn_conv_factor(units="npm", *args):
+def get_attn_conv_factor(units="npm", *args, xp):
     """
     Get conversion factor to get attnuation into correct units
     Input -
@@ -70,8 +71,8 @@ def get_attn_conv_factor(units="npm", *args):
         if len(args) == 0:
             raise ValueError("Wavelength must be passed in if using dbplam")
         lam = args[0]
-        if np.asarray(lam).size > 1:  # array
-            out = np.zeros(lam.size)
+        if size(xp.asarray(lam, dtype=xp.double)) > 1:  # array
+            out = xp.zeros(size(lam), dtype=xp.double)
             lam[lam == 0] = 1.0
             out = 1 / 8.6858896 / lam
             return out
@@ -88,7 +89,7 @@ def get_attn_conv_factor(units="npm", *args):
         if len(args) == 0:
             raise ValueError("Wavelength must be passed in if using dbplam")
         lam = args[0]
-        return np.pi / lam / Q
+        return xp.pi / lam / Q
     else:
         raise ValueError(
             "Invalid units passed in. options are npm, dbpm, dbplam, \
@@ -171,7 +172,7 @@ def add_attn(omega, krs, phi, h_list, z_list, k_sq_list, rho_list, k_hs_sq, rho_
     return pert_krs
 
 
-from pykrak.misc import get_simpsons_integrator, get_layer_N
+from pykrak.misc import get_layer_N, get_simpsons_integrator
 
 
 @njit
