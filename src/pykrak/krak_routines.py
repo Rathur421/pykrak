@@ -9,6 +9,8 @@ Institution: Scripps Institution of Oceanography, UC San Diego
 """
 
 from math import inf, pi
+from types import ModuleType
+from typing import Literal
 
 from array_api_compat import size
 from array_api_compat.common._helpers import array_namespace
