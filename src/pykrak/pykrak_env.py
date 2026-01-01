@@ -1,9 +1,12 @@
-import numpy as np
-from matplotlib import pyplot as plt
-from pykrak.attn_pert import add_attn, get_attn_conv_factor, get_c_imag
-from pykrak import krak_routines as kr
+from typing import Literal
 
-import numba as nb
+import numpy as np
+from array_api_compat.common._helpers import array_namespace
+from array_api_compat.common._typing import Array
+from matplotlib import pyplot as plt
+
+from pykrak import krak_routines as kr
+from pykrak.attn_pert import add_attn, get_attn_conv_factor, get_c_imag
 
 """ Description:
     This module contains the class Env, which is used to store the model parameters
@@ -44,20 +47,21 @@ class Modes:
         self.M = M
         self.z = z
         self.ugs = ugs
+        self.xp = array_namespace(freq, krs, phi, M, z, ugs)
 
     def get_phi_zr(self, zr, M=None):
         """
         Interpolate modes over array depths zr
         """
         phi = self.phi
-        if np.all(phi == 0):
+        if self.xp.all(phi == 0):
             phi = self.get_phi()
         if M is None:
             M = self.M
-        phi_zr = np.zeros((zr.size, M))
+        phi_zr = self.xp.zeros((zr.size, M), dtype=xp.double)
         phi_z = self.z
         for i in range(M):
-            phi_zr[:, i] = np.interp(zr, phi_z, phi[:, i])
+            phi_zr[:, i] = self.xp.interp(zr, phi_z, phi[:, i])
         return phi_zr
 
 
@@ -108,24 +112,24 @@ class Env:
 
     def __init__(
         self,
-        z_list,
-        cp_list,
-        cs_list,
-        rho_list,
-        attnp_list,
-        attns_list,
-        cp_top,
-        cs_top,
-        rho_top,
-        attnp_top,
-        attns_top,
-        cp_bott,
-        cs_bott,
-        rho_bott,
-        attnp_bott,
-        attns_bott,
-        attn_units,
-        sigma_arr,
+        z_list: list[Array],
+        cp_list: list[Array],
+        cs_list: list[Array],
+        rho_list: list[Array],
+        attnp_list: list[Array],
+        attns_list: list[Array],
+        cp_top: float,
+        cs_top: float,
+        rho_top: float,
+        attnp_top: float,
+        attns_top: float,
+        cp_bott: float,
+        cs_bott: float,
+        rho_bott: float,
+        attnp_bott: float,
+        attns_bott: float,
+        attn_units: Literal["npm", "dbpm", "dbplam", "dbpkmhz", "q"],
+        sigma_arr: Array,
     ):
         self.z_list = z_list
         self.cp_list = cp_list
@@ -133,6 +137,10 @@ class Env:
         self.rho_list = rho_list
         self.attnp_list = attnp_list
         self.attns_list = attns_list
+
+        self.xp = array_namespace(
+            z_list[0], cp_list[0], cs_list[0], rho_list[0], attnp_list[0], attns_list[0]
+        )
 
         self.cp_top = cp_top
         self.cs_top = cs_top
@@ -149,7 +157,14 @@ class Env:
         self.attn_units = attn_units
         self.sigma_arr = sigma_arr
 
-    def get_modes(self, freq, Ng_list=[], rmax=0.0, c_low=0.0, c_high=1e10):
+    def get_modes(
+        self,
+        freq: float,
+        Ng_list: list[int] = [],
+        rmax: float = 0.0,
+        c_low: float = 0.0,
+        c_high: float = 1e10,
+    ):
         """
         Compute wavenumbers , mode shapes, and group speeds for the environment at
         the specified frequency
@@ -184,12 +199,13 @@ class Env:
             self.rho_bott,
             self.attnp_bott,
             self.attns_bott,
-            self.attn_units,
-            Ng_list,
-            rmax,
-            c_low,
-            c_high,
-            self.sigma_arr,
+            attn_units=self.attn_units,
+            Ng_list=Ng_list,
+            rmax=rmax,
+            c_low=c_low,
+            c_high=c_high,
+            sigma_arr=self.sigma_arr,
+            xp=self.xp,
         )
 
         # pk_krs, phi_z, phi, ugs = kr.list_input_solve(freq, z_list, cp_list, cs_list, rho_list, attnp_list, attns_list, cp_top, cs_top, rho_top, attnp_top, attns_top, cp_hs, cs_hs, rho_hs, attnp_hs, attns_hs, 'dbplam', N_list, RMax, c_low, c_high)

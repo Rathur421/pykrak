@@ -6,14 +6,15 @@ Description:
 import warnings
 from pathlib import Path
 
-import numpy as np
 import pytest
+from array_api_compat import size
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from pyat import readwrite as rw
 from pykrak import field as field
 from pykrak import krak_routines as kr
 from pykrak import test_helpers as th
+from pykrak.backend_compat import array_interp
 
 env_test_files = list(
     map(
@@ -36,7 +37,7 @@ env_test_files = list(
 
 
 @pytest.mark.parametrize("env", env_test_files, ids=lambda path: path.stem)
-def test_kr_comp(env: Path):
+def test_kr_comp(env: Path, backend):
     TitleEnv, freq, ssp, bdry, pos, beam, cint, RMax = rw.read_env(
         str(env.with_suffix(".env")), "kraken"
     )
@@ -47,7 +48,7 @@ def test_kr_comp(env: Path):
     krak_prt_k, mode_nums, vps, vgs = th.read_krs_from_prt_file(
         str(env.with_suffix(".prt")), verbose=False
     )
-    krak_prt_k = np.array(krak_prt_k)
+    krak_prt_k = backend.asarray(krak_prt_k, dtype=backend.complex128)
 
     RMax = RMax * 1e3  # Convert to meters
 
@@ -69,17 +70,18 @@ def test_kr_comp(env: Path):
         beam,
         cint,
         RMax,
-    ) = th.init_pykrak_env(ssp, bdry, pos, beam, cint, RMax)
+    ) = th.init_pykrak_env(ssp, bdry, pos, beam, cint, RMax, xp=backend)
     pk_krs, phi_z, phi, ugs = pykrak_env.get_modes(
         freq, N_list, rmax=RMax, c_low=c_low, c_high=c_high
     )
+    pk_krs = backend.asarray(pk_krs, dtype=backend.complex128)
 
     max_mode_idx = None
-    if modes.M != pk_krs.size:
+    if modes.M != size(pk_krs):
         warnings.warn(
-            f"Warning: Number of modes in kraken and pykrak do not match! {modes.M} != {pk_krs.size} for envs {env}"
+            f"Warning: Number of modes in kraken and pykrak do not match! {modes.M} != {size(pk_krs)} for envs {env}"
         )
-        max_mode_idx = min(modes.M, pk_krs.size)
+        max_mode_idx = min(modes.M, size(pk_krs))
 
     failures = {}
     for i_m, mode_num in enumerate(mode_nums):
@@ -87,10 +89,10 @@ def test_kr_comp(env: Path):
             if (i_m < max_mode_idx) or (mode_num < max_mode_idx):
                 break
         try:
-            assert np.isclose(
+            assert backend.isclose(
                 krak_prt_k[i_m],
                 pk_krs[mode_num - 1],
-                atol=2 * np.pi * freq / c_high * 1e-18,
+                atol=2 * backend.pi * freq / c_high * 1e-18,
             ), f"""Larger error in real part of horizontal wavenumber for env {env.stem} at mode {mode_num}.
             Found kraken : {krak_prt_k[i_m]} | pykrak {pk_krs[mode_num - 1]}
             """
@@ -110,7 +112,7 @@ def test_kr_comp(env: Path):
 
 
 @pytest.mark.parametrize("env", env_test_files, ids=lambda path: path.stem)
-def test_phi_comp(env: Path, plots_enabled):
+def test_phi_comp(env: Path, plots_enabled, backend):
     TitleEnv, freq, ssp, bdry, pos, beam, cint, RMax = rw.read_env(
         str(env.with_suffix(".env")), "kraken"
     )
@@ -118,12 +120,12 @@ def test_phi_comp(env: Path, plots_enabled):
     c_low, c_high = cint.Low, cint.High
 
     modes = rw.read_modes(**{"fname": str(env.with_suffix(".mod")), "freq": freq})
-    krak_phi = modes.phi
+    krak_phi = backend.asarray(modes.phi, dtype=backend.complex128)
 
     krak_prt_k, mode_nums, vps, vgs = th.read_krs_from_prt_file(
         str(env.with_suffix(".prt")), verbose=False
     )
-    z = modes.z
+    z = backend.asarray(modes.z, dtype=backend.double)
 
     RMax = RMax * 1e3
 
@@ -145,24 +147,26 @@ def test_phi_comp(env: Path, plots_enabled):
         beam,
         cint,
         RMax,
-    ) = th.init_pykrak_env(ssp, bdry, pos, beam, cint, RMax)
+    ) = th.init_pykrak_env(ssp, bdry, pos, beam, cint, RMax, xp=backend)
 
     pk_krs, phi_z, pk_phi, ugs = pykrak_env.get_modes(
         freq, N_list, rmax=RMax, c_low=c_low, c_high=c_high
     )
-    phi_new = np.zeros((z.size, pk_phi.shape[1]))
+
+    phi_new = backend.zeros((size(z), pk_phi.shape[1]), dtype=backend.double)
+
     for i in range(pk_phi.shape[1]):
-        phi_new[:, i] = np.interp(z, phi_z, pk_phi[:, i])
+        phi_new[:, i] = array_interp(z, phi_z, pk_phi[:, i], backend)
 
     pk_phi = phi_new
     phi_z = z
 
     max_mode_idx = None
-    if modes.M != pk_krs.size:
+    if modes.M != size(pk_krs):
         warnings.warn(
-            f"Warning: Number of modes in kraken and pykrak do not match! {modes.M} != {pk_krs.size} for envs {env}"
+            f"Warning: Number of modes in kraken and pykrak do not match! {modes.M} != {size(pk_krs)} for envs {env}"
         )
-        max_mode_idx = min(modes.M, pk_krs.size)
+        max_mode_idx = min(modes.M, size(pk_krs))
 
     failures = {}
     for i_m, (krak_phi_m, pk_phi_m) in enumerate(zip(krak_phi.real.T, pk_phi.T)):
@@ -170,13 +174,13 @@ def test_phi_comp(env: Path, plots_enabled):
             if i_m < max_mode_idx:
                 break
         try:
-            assert np.allclose(
+            assert backend.allclose(
                 pk_phi_m, krak_phi_m, atol=1e-6
             ), f"""Larger error on modal depth function for env {env.stem} at mode {i_m + 1}.
             """
             # Found kraken : {krak_prt_k[i_m]} | pykrak {pk_krs.real[mode_num - 1]}
         except AssertionError as e:
-            # pass
+            # log error and pass to the next mode
             failures[i_m + 1] = (krak_phi_m, pk_phi_m)
 
     if failures:

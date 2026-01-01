@@ -65,23 +65,23 @@ def read_krs_from_prt_file(prt_file, verbose=True):
     return krs, mode_nums, vps, vgs
 
 
-def init_pykrak_env(ssp, bdry, pos, beam, cint, RMax):
+def init_pykrak_env(ssp, bdry, pos, beam, cint, RMax, xp):
     """
     Initialize a pykrak env obj from the values read in from the env files
     """
 
     N_list = ssp.N
     sigma_list = ssp.sigma
-    z_list = [np.array(x.z) for x in ssp.raw]
-    c_list = [np.array(x.alphaR) for x in ssp.raw]
-    cs_list = [np.array(x.betaR) for x in ssp.raw]
-    rho_list = [np.array(x.rho) for x in ssp.raw]
-    attn_list = [np.array(x.alphaI) for x in ssp.raw]
-    attns_list = [np.array(x.betaI) for x in ssp.raw]
+    z_list = [xp.asarray(x.z, dtype=xp.double) for x in ssp.raw]
+    c_list = [xp.asarray(x.alphaR, dtype=xp.double) for x in ssp.raw]
+    cs_list = [xp.asarray(x.betaR, dtype=xp.double) for x in ssp.raw]
+    rho_list = [xp.asarray(x.rho, dtype=xp.double) for x in ssp.raw]
+    attn_list = [xp.asarray(x.alphaI, dtype=xp.double) for x in ssp.raw]
+    attns_list = [xp.asarray(x.betaI, dtype=xp.double) for x in ssp.raw]
     # this is npm ...so need to reverse convert?
     bot_bdry = bdry.Bot
     sigma_list.append(bot_bdry.sigma)
-    sigma_arr = np.array(sigma_list)
+    sigma_arr = xp.asarray(sigma_list, dtype=xp.double)
     opt = bot_bdry.Opt
     hs = bot_bdry.hs
     # I don't handle shear
