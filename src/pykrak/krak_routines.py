@@ -39,7 +39,7 @@ def initialize(
     Args:
     h_arr - mesh size for the different layers
     ind_arr - index of the start of each layer in z_arr
-    z_arr - asarray of depths , contains doubled interface points
+    z_arr - array of depths , contains doubled interface points
     omega2 - squared angular frequency
     cp_arr - compressional wave speed (complex)
     cs_arr - shear wave speed (complex)
@@ -223,7 +223,7 @@ def _elastic_up(
         Power scaling factor, modified during computation.
     h : float
         layer thickness for the medium
-    b1, b2, b3, b4, rho : asarray of the discretized wave equation arrays freom initialize
+    b1, b2, b3, b4, rho : array of the discretized wave equation arrays freom initialize
     Floor, Roof : float
         Scaling thresholds.
     iPowerR, iPowerF : int
@@ -285,7 +285,7 @@ def _elastic_up(
 
 
 def _elastic_down(
-    x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp=None
+    x, yV, iPower, h, b1, b2, b3, b4, rho_arr, Floor, Roof, iPowerR, iPowerF, xp
 ):
     """
     Propagates down through a single elastic layer using compound matrix formulation.
@@ -299,7 +299,7 @@ def _elastic_down(
         Power scaling factor, modified during computation.
     h : float
         layer thickness for the medium
-    b1, b2, b3, b4, rho : asarray of the discretized wave equation arrays freom initialize
+    b1, b2, b3, b4, rho : array of the discretized wave equation arrays freom initialize
     Floor, Roof : float
         Scaling thresholds.
     iPowerR, iPowerF : int
@@ -308,7 +308,6 @@ def _elastic_down(
     tuple
         Updated yV, iPower.
     """
-    xp = np if xp is None else np
     # Initialize variables
     two_x = 2.0 * x
     two_h = 2.0 * h
@@ -379,13 +378,12 @@ def _get_bc_impedance(
     last_acoustic,
     mode_count,
     complex_flag,
-    xp=None,
+    xp,
 ):
     """
     Compute the impedance functions for the top and bottom halfspaces
     top_flag - True if the top boundary
     """
-    xp = np if xp is None else np
     iPower = 0
     Floor = 1e-50
     Roof = 1e50
@@ -454,6 +452,7 @@ def _get_bc_impedance(
                     Roof,
                     iPowerR,
                     iPowerF,
+                    xp,
                 )
             f = omega2 * Yv[3]
             g = Yv[1]
@@ -486,7 +485,7 @@ def acoustic_layers(
     x - float 64, eigenvalue is x = kr^2
     f, g are impedance functions at the bottom (float 64)
     iPower - int, power of 10 for scaling the shooting solutions
-    h_arr - mesh asarray
+    h_arr - mesh array
 
     """
 
@@ -537,7 +536,7 @@ def acoustic_layers(
     return f, g, iPower, mode_count
 
 
-def funct(x, args):
+def funct(x, args, xp):
     """
     funct(x) = 0 is the dispersion relation
     (funct is the difference between the impedance for the solution obtained
@@ -606,6 +605,7 @@ def funct(x, args):
         last_acoustic,
         mode_count,
         False,
+        xp,
     )
     # print('x, f_bott, g_bott', x, f_bott, g_bott)
     f, g, iPower, mode_count = acoustic_layers(
@@ -644,6 +644,7 @@ def funct(x, args):
         last_acoustic,
         mode_count,
         False,
+        xp,
     )
 
     # print('at top', f_top, g_top)
@@ -673,12 +674,11 @@ def funct(x, args):
     return Delta, iPower, mode_count
 
 
-def bisection(x_min, x_max, M, args, xp=None):
+def bisection(x_min, x_max, M, args, xp):
     """
     Returns isolating intervals (xL, xR) for each eigenvalue
     in the given interval [x_min, x_max].
     """
-    xp = np if xp is None else xp
     max_bisections = 50
 
     # Initialize boundaries
@@ -724,7 +724,7 @@ def bisection(x_min, x_max, M, args, xp=None):
     return x_l, x_r
 
 
-def solve1(args, h_v):
+def solve1(args, h_v, xp):
     """
     Solve for eigenvalues using Sturm sequences and Brent's method.
 
@@ -756,7 +756,7 @@ def solve1(args, h_v):
         evmat, extrap, k, vg : ndarray, optional
             Arrays to hold results. If provided, will be updated.
         n : ndarray
-            asArray of mode counts per acoustic layer.
+            Array of mode counts per acoustic layer.
         first_acoustic, last_acoustic : int
             Indices for the acoustic layers.
     """
@@ -813,7 +813,7 @@ def solve1(args, h_v):
         )
 
     # Initialize bounds for eigenvalue refinement
-    x_l, x_r = bisection(x_min, x_max, m, args)
+    x_l, x_r = bisection(x_min, x_max, m, args, xp)
 
     # Refine each eigenvalue
     count_modes = False
@@ -824,16 +824,16 @@ def solve1(args, h_v):
         eps = abs(x2) * 10.0 ** (2.0 - xp.finfo(xp.float64).precision)
 
         margs = args + (mode, False, 0)
-        x = zbrent(x1, x2, eps, margs)
+        x = zbrent(x1, x2, eps, margs, xp=xp)
 
         ev_mat[iset, mode - 1] = x
     # ev_mat = ev_mat[:, :m].copy()
     return ev_mat, m
 
 
-def solve2(args, h_v, M):
+def solve2(args, h_v, M, xp):
     """
-    h_v is asarray of mesh sizes
+    h_v is array of mesh sizes
     """
 
     max_iteration = 2000
@@ -898,7 +898,7 @@ def solve2(args, h_v, M):
         # Use secant method to refine eigenvalue
         margs = args + (mode, CountModes, mode_count)
         x, iteration, error_message = root_finder_secant_real(
-            x, tolerance, max_iteration, funct, margs
+            x, tolerance, max_iteration, funct, margs, xp
         )
         if error_message != "":
             print(f"Warning in Solve2 - RootFinderSecant: {error_message}")
@@ -914,7 +914,7 @@ def solve2(args, h_v, M):
     return ev_mat, mode
 
 
-def root_finder_secant_real(x2, tolerance, max_iterations, func, args):
+def root_finder_secant_real(x2, tolerance, max_iterations, func, args, xp):
     """
     Secant method for finding roots of a real-valued function.
     Used for funct, so the function returns three things
@@ -935,12 +935,12 @@ def root_finder_secant_real(x2, tolerance, max_iterations, func, args):
         return x2, 0, "Non-positive tolerance specified"
 
     x1 = x2 + 10.0 * tolerance
-    f1, i_power1, _ = func(x1, args)
+    f1, i_power1, _ = func(x1, args, xp)
 
     for iteration in range(1, max_iterations + 1):
         x0, f0, i_power0 = x1, f1, i_power1
         x1 = x2
-        f1, i_power1, _ = func(x1, args)
+        f1, i_power1, _ = func(x1, args, xp)
 
         c_num = f1 * (x1 - x0)
         c_den = f1 - f0 * 10.0 ** (i_power0 - i_power1)
@@ -1002,7 +1002,7 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
     return x2, max_iterations, "Failure to converge in RootFinderSecant"
 
 
-def zbrent(a, b, t, args):
+def zbrent(a, b, t, args, xp):
     """
     Licensing:
 
@@ -1022,8 +1022,8 @@ def zbrent(a, b, t, args):
 
     sa = a
     sb = b
-    fa, _, _ = funct(sa, args)
-    fb, _, _ = funct(sb, args)
+    fa, _, _ = funct(sa, args, xp)
+    fb, _, _ = funct(sb, args, xp)
 
     c = sa
     fc = fa
@@ -1087,7 +1087,7 @@ def zbrent(a, b, t, args):
         else:
             sb = sb - tol
 
-        fb, _, _ = funct(sb, args)
+        fb, _, _ = funct(sb, args, xp)
 
         if (0.0 < fb and 0.0 < fc) or (fb <= 0.0 and fc <= 0.0):
             c = sa
@@ -1104,12 +1104,12 @@ def inverse_iter(d, e, max_iteration=2000):
     Perform inverse iteration to compute an eigenvector.
 
     Parameters:
-    - d (numpy.ndarray): Diagonal elements of the matrix (1D asarray of size N).
-    - e (numpy.ndarray): Off-diagonal elements (1D asarray of size N+1).
+    - d (numpy.ndarray): Diagonal elements of the matrix (1D array of size N).
+    - e (numpy.ndarray): Off-diagonal elements (1D array of size N+1).
     - max_iteration (int): Maximum number of iterations (default: 100).
 
     Returns:
-    - eigenvector (numpy.ndarray): Approximated eigenvector (1D asarray of size N).
+    - eigenvector (numpy.ndarray): Approximated eigenvector (1D array of size N).
     - i_error (int): error flag (0 if successful, -1 if convergence fails).
     """
     # Initialize variables
@@ -1197,7 +1197,7 @@ def inverse_iter(d, e, max_iteration=2000):
     return eigenvector, i_error
 
 
-def normalize(phi, iTurningPoint, x, args, z):
+def normalize(phi, iTurningPoint, x, args, z, xp):
     """
     Normalize the eigenvector phi and compute perturbations from attenuation and group velocity.
     """
@@ -1312,6 +1312,7 @@ def normalize(phi, iTurningPoint, x, args, z):
         last_acoustic,
         mode_count,
         False,
+        xp,
     )
     f_top2, g_top2, iPower_top, mode_count = _get_bc_impedance(
         x2,
@@ -1332,6 +1333,7 @@ def normalize(phi, iTurningPoint, x, args, z):
         last_acoustic,
         mode_count,
         False,
+        xp,
     )
     drho_dx = 0.0
     if g_top1 != 0:
@@ -1377,6 +1379,7 @@ def normalize(phi, iTurningPoint, x, args, z):
         last_acoustic,
         mode_count,
         False,
+        xp,
     )
     deta_dx = 0.0
     if g_bott1 != 0:
@@ -1396,21 +1399,22 @@ def normalize(phi, iTurningPoint, x, args, z):
     Perturbation_k = Perturbation_k * scale_factor**2
     ug = 1.0 / sg
 
-    scattering_k = scatterloss(args, w, x)
+    scattering_k = scatterloss(args, w, x, xp)
 
     Perturbation_k = Perturbation_k + scattering_k
 
     return w, Perturbation_k, sg, ug
 
 
-def scatter_root(z):
-    if np.real(z) >= 0:
-        return np.sqrt(z)
+def scatter_root(z, xp):
+    z = xp.asarray(z)
+    if xp.real(z) >= 0:
+        return xp.sqrt(z)
     else:
-        return -np.sqrt(-z) * 1j
+        return -xp.sqrt(-z) * 1j
 
 
-def kup_ing(sigma, eta1_sq, rho1, eta2_sq, rho2, P, U):
+def kup_ing(sigma, eta1_sq, rho1, eta2_sq, rho2, P, U, xp):
     """
     Kuperman ingenito imaginary part of wavenumber for boundary roughnesss
     sigma - rms amplitude of the boundary roughness
@@ -1419,8 +1423,8 @@ def kup_ing(sigma, eta1_sq, rho1, eta2_sq, rho2, P, U):
     if sigma == 0.0:
         return ret
 
-    eta1 = scatter_root(eta1_sq)
-    eta2 = scatter_root(eta2_sq)
+    eta1 = scatter_root(eta1_sq, xp)
+    eta2 = scatter_root(eta2_sq, xp)
     delta = rho1 * eta2 + rho2 * eta1
     if delta == 0.0:
         return ret
@@ -1440,7 +1444,7 @@ def kup_ing(sigma, eta1_sq, rho1, eta2_sq, rho2, P, U):
         return ret
 
 
-def scatterloss(args, phi, x):
+def scatterloss(args, phi, x, xp):
     """
     perturbation_k - complex wavenumber, already includes volume attenuation from
     perturbation theory
@@ -1500,7 +1504,7 @@ def scatterloss(args, phi, x):
             else:
                 rho1 = rho_top
                 eta1_sq = x - omega2 / cp_top**2
-                U = np.sqrt(eta1_sq) * phi[0] / rho1
+                U = xp.sqrt(eta1_sq) * phi[0] / rho1
         else:  # use rho1, etaSq, U layer
             h2 = h_arr[i - 1] ** 2
             j = (
@@ -1532,12 +1536,12 @@ def scatterloss(args, phi, x):
         phiC = phi[j]  # mode shape at the interface
         # print('rho1', rho1, 'rho2', rho2, 'sigma', sigma_arr[i], 'eta_sq', eta1_sq, eta2_sq, 'phiC', phiC, 'U', U)
         scattering_perturbation_k = scattering_perturbation_k + kup_ing(
-            sigma_arr[i], eta1_sq, rho1, eta2_sq, rho2, phiC, U
+            sigma_arr[i], eta1_sq, rho1, eta2_sq, rho2, phiC, U, xp
         )
     return scattering_perturbation_k
 
 
-def get_phi(args):
+def get_phi(args, xp):
     (
         omega2,
         ev_mat,
@@ -1566,6 +1570,7 @@ def get_phi(args):
         M,
         sigma_arr,
     ) = args
+
     CountModes = False
     mode_count = 0  # doesn't matter
 
@@ -1622,6 +1627,7 @@ def get_phi(args):
             last_acoustic,
             mode_count,
             False,
+            xp,
         )
 
         if g_top == 0.0:
@@ -1671,7 +1677,9 @@ def get_phi(args):
             last_acoustic,
             mode_count,
             False,
+            xp,
         )
+
         # print('f_bott', f_bott)
         # print('g_bott', g_bott)
 
@@ -1683,8 +1691,9 @@ def get_phi(args):
 
         # for i in range(N_total1):
         #    print('i, z[i], d[i], e[i]', i, z[i], d[i], e[i])
-        w, i_error = inverse_iter(d, e)
-        w, pert_k, sg, ug = normalize(w, iTurningPoint, x, args, z)
+        w, i_error = inverse_iter(d, e, xp)
+
+        w, pert_k, sg, ug = normalize(w, iTurningPoint, x, args, z, xp=xp)
 
         phi[:, mind] = w
         pert_k_arr[mind] = pert_k
@@ -1702,6 +1711,7 @@ def mesh_list_inputs(
     Ng_arr,
     attn_units,
     omega,
+    xp,
 ):
     num_layers = len(z_list)
     h_list = []
@@ -1769,6 +1779,7 @@ def list_input_solve(
     c_low,
     c_high,
     sigma_arr,
+    xp,
 ):
     """
     Take the environment specified as a list of arrays (each list item is a layer)
@@ -1797,19 +1808,19 @@ def list_input_solve(
     # print('Ng_arr0', Ng_arr0)
 
     if attnp_top > 0:
-        cp_top_imag = ap.get_c_imag(cp_top, attnp_top, attn_units, omega)
+        cp_top_imag = ap.get_c_imag(cp_top, attnp_top, attn_units, omega, xp=xp)
         cp_top = cp_top + 1j * cp_top_imag
 
     if attns_top > 0:
-        cs_top_imag = ap.get_c_imag(cs_top, attns_top, attn_units, omega)
+        cs_top_imag = ap.get_c_imag(cs_top, attns_top, attn_units, omega, xp=xp)
         cs_top = cs_top + 1j * cs_top_imag
 
     if attnp_bott > 0:
-        cp_bott_imag = ap.get_c_imag(cp_bott, attnp_bott, attn_units, omega)
+        cp_bott_imag = ap.get_c_imag(cp_bott, attnp_bott, attn_units, omega, xp=xp)
         cp_bott = cp_bott + 1j * cp_bott_imag
 
     if attns_bott > 0:
-        cs_bott_imag = ap.get_c_imag(cs_bott, attns_bott, attn_units, omega)
+        cs_bott_imag = ap.get_c_imag(cs_bott, attns_bott, attn_units, omega, xp=xp)
         cs_bott = cs_bott + 1j * cs_bott_imag
 
     M_max = 5000
@@ -1833,6 +1844,7 @@ def list_input_solve(
             Ng_arr_i,
             attn_units,
             omega,
+            xp,
         )
 
         (
@@ -1903,7 +1915,7 @@ def list_input_solve(
             h_v = np.append(h_v, h_arr[0])
 
         if iset <= 1 and (last_acoustic - first_acoustic + 1 == num_layers):
-            ev_mat, M = solve1(args, h_v)
+            ev_mat, M = solve1(args, h_v, xp=xp)
             if M == 0:
                 plt.figure()
                 for i in range(num_layers):
@@ -1911,14 +1923,14 @@ def list_input_solve(
                     plt.plot(cs_list[i], z_list[i])
                 plt.show()
         else:  # solve2
-            ev_mat, M = solve2(args, h_v, M)
+            ev_mat, M = solve2(args, h_v, M, xp=xp)
             if omega2 / c_high**2 > ev_mat[iset, M - 1]:
                 M -= 1
 
         # if iset == 0 get phi
         if iset == 0:
             pargs = args + (M, sigma_arr)
-            z, phi, pert_k, ugs = get_phi(pargs)
+            z, phi, pert_k, ugs = get_phi(pargs, xp=xp)
 
         # print('iset', iset, 'M', M, ev_mat[iset, :M])
 
