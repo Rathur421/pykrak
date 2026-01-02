@@ -21,7 +21,6 @@ from pykrak import attn_pert as ap
 from pykrak.backend_compat import (
     array_append,
     array_interp,
-    array_trapezoid,
     finfo_precision,
 )
 
@@ -177,8 +176,8 @@ def initialize(
 
 
 def get_f_g(
-    cp: float,
-    cs: float,
+    cp: complex,
+    cs: complex,
     rho: float,
     x: float,
     omega2: float,
@@ -218,7 +217,6 @@ def get_f_g(
             gammap = xp.sqrt(
                 x - omega2 / cp**2 + 0j  # HACK: ensure type is complex (error in torch)
             )
-            # print(f"{gammap = }")
             f = gammap
             g = xp.asarray(rho, dtype=xp.float64)
             if not complex_flag:
@@ -405,22 +403,22 @@ def elastic_down(
 
 
 def get_bc_impedance(
-    x,
-    omega2,
-    top_flag,
-    cp,
-    cs,
-    rho,
+    x: float,
+    omega2: float,
+    top_flag: bool,
+    cp: complex,
+    cs: complex,
+    rho: float,
     h_arr: Array,
-    ind_arr,
+    ind_arr: Array,
     z_arr: Array,
     b1: Array,
     b2: Array,
     b3: Array,
     b4: Array,
     rho_arr: Array,
-    first_acoustic,
-    last_acoustic,
+    first_acoustic: int,
+    last_acoustic: int,
     mode_count: int,
     complex_flag: bool,
     xp: ModuleType,
@@ -520,8 +518,8 @@ def acoustic_layers(
     rho_arr: Array,
     CountModes: int,
     mode_count: int,
-    first_acoustic,
-    last_acoustic,
+    first_acoustic: int,
+    last_acoustic: int,
 ):
     r"""
     Shoot through acoustic layers
@@ -581,7 +579,32 @@ def acoustic_layers(
     return f, g, iPower, mode_count
 
 
-def funct(x, args, xp):
+def funct(
+    x,
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    mode,
+    CountModes,
+    mode_count,
+    xp,
+):
     """
     funct(x) = 0 is the dispersion relation
     (funct is the difference between the impedance for the solution obtained
@@ -594,35 +617,6 @@ def funct(x, args, xp):
     iset is the current index of the mesh to use in ev_mat
 
     """
-    (
-        omega2,
-        ev_mat,
-        iset,
-        h_arr,
-        ind_arr,
-        z_arr,
-        N_arr,
-        cp_top,
-        cs_top,
-        rho_top,
-        cp_bott,
-        cs_bott,
-        rho_bott,
-        b1,
-        b1c,
-        b2,
-        b3,
-        b4,
-        rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
-        first_acoustic,
-        last_acoustic,
-        mode,
-        CountModes,
-        mode_count,
-    ) = args
     iPowerR = 50
     iPowerF = -50
     Roof = 1.0e50
@@ -668,7 +662,6 @@ def funct(x, args, xp):
         first_acoustic,
         last_acoustic,
     )
-    # print('after al', f, g)
     # print('eig x, f, g, iPower after AcousticLayers = ', x, f, g, iPower)
     f_top, g_top, iPower_top, mode_count = get_bc_impedance(
         x,
@@ -719,7 +712,31 @@ def funct(x, args, xp):
     return Delta, iPower, mode_count
 
 
-def bisection(x_min, x_max, M, args, xp):
+def bisection(
+    x_min,
+    x_max,
+    M,
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    xp,
+):
     """
     Returns isolating intervals (xL, xR) for each eigenvalue
     in the given interval [x_min, x_max].
@@ -733,8 +750,32 @@ def bisection(x_min, x_max, M, args, xp):
     # Compute the initial number of modes at x_max
     count_modes = True
     mode_count = 0
-    margs = args + (1, count_modes, 0)
-    delta, i_power, mode_count = funct(x_max, margs, xp)
+    delta, i_power, mode_count = funct(
+        x_max,
+        omega2,
+        ev_mat,
+        iset,
+        h_arr,
+        ind_arr,
+        z_arr,
+        cp_top,
+        cs_top,
+        rho_top,
+        cp_bott,
+        cs_bott,
+        rho_bott,
+        b1,
+        b2,
+        b3,
+        b4,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        1,
+        count_modes,
+        0,
+        xp,
+    )
     n_zeros_initial = mode_count
 
     if M == 1:
@@ -749,8 +790,32 @@ def bisection(x_min, x_max, M, args, xp):
 
             for _ in range(max_bisections):
                 x = x1 + (x2 - x1) / 2
-                margs = args + (mode, True, 0)
-                delta, i_power, mcount = funct(x, margs, xp)
+                delta, i_power, mcount = funct(
+                    x,
+                    omega2,
+                    ev_mat,
+                    iset,
+                    h_arr,
+                    ind_arr,
+                    z_arr,
+                    cp_top,
+                    cs_top,
+                    rho_top,
+                    cp_bott,
+                    cs_bott,
+                    rho_bott,
+                    b1,
+                    b2,
+                    b3,
+                    b4,
+                    rho_arr,
+                    first_acoustic,
+                    last_acoustic,
+                    mode,
+                    True,
+                    0,
+                    xp,
+                )
                 n_zeros = mcount - n_zeros_initial
 
                 if n_zeros < mode:  # new right bdry
@@ -769,7 +834,31 @@ def bisection(x_min, x_max, M, args, xp):
     return x_l, x_r
 
 
-def solve1(args, h_v, xp):
+def solve1(
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    N_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    c_low,
+    c_high,
+    first_acoustic,
+    last_acoustic,
+    xp,
+):
     """
     Solve for eigenvalues using Sturm sequences and Brent's method.
 
@@ -806,14 +895,20 @@ def solve1(args, h_v, xp):
             Indices for the acoustic layers.
     """
 
-    (
+    # Initialization
+    # Determine the number of modes
+    x_min = 1.00001 * omega2 / c_high**2
+
+    count_modes = True
+
+    delta, i_power, mode_count = funct(
+        x_min,
         omega2,
         ev_mat,
         iset,
         h_arr,
         ind_arr,
         z_arr,
-        N_arr,
         cp_top,
         cs_top,
         rho_top,
@@ -821,31 +916,47 @@ def solve1(args, h_v, xp):
         cs_bott,
         rho_bott,
         b1,
-        b1c,
         b2,
         b3,
         b4,
         rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
         first_acoustic,
         last_acoustic,
-    ) = args
-
-    # Initialization
-    # Determine the number of modes
-    x_min = 1.00001 * omega2 / c_high**2
-
-    count_modes = True
-    margs = args + (1, count_modes, 0)
-
-    delta, i_power, mode_count = funct(x_min, margs, xp)
+        1,
+        count_modes,
+        0,
+        xp,
+    )
     m = mode_count
 
     # Check upper bound
     x_max = omega2 / c_low**2
-    delta, i_power, mode_count = funct(x_max, margs, xp)
+    delta, i_power, mode_count = funct(
+        x_max,
+        omega2,
+        ev_mat,
+        iset,
+        h_arr,
+        ind_arr,
+        z_arr,
+        cp_top,
+        cs_top,
+        rho_top,
+        cp_bott,
+        cs_bott,
+        rho_bott,
+        b1,
+        b2,
+        b3,
+        b4,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        1,
+        count_modes,
+        0,
+        xp,
+    )
     m -= mode_count
 
     if m == 0:
@@ -859,7 +970,31 @@ def solve1(args, h_v, xp):
         )
 
     # Initialize bounds for eigenvalue refinement
-    x_l, x_r = bisection(x_min, x_max, m, args, xp)
+    x_l, x_r = bisection(
+        x_min,
+        x_max,
+        m,
+        omega2,
+        ev_mat,
+        iset,
+        h_arr,
+        ind_arr,
+        z_arr,
+        cp_top,
+        cs_top,
+        rho_top,
+        cp_bott,
+        cs_bott,
+        rho_bott,
+        b1,
+        b2,
+        b3,
+        b4,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        xp,
+    )
 
     # Refine each eigenvalue
     count_modes = False
@@ -869,8 +1004,34 @@ def solve1(args, h_v, xp):
         x2 = x_r[mode - 1]
         eps = abs(x2) * 10.0 ** (2.0 - finfo_precision(x2.dtype, namespace=xp))
 
-        margs = args + (mode, False, 0)
-        x = zbrent(x1, x2, eps, margs, xp=xp)
+        x = zbrent(
+            x1,
+            x2,
+            eps,
+            omega2,
+            ev_mat,
+            iset,
+            h_arr,
+            ind_arr,
+            z_arr,
+            cp_top,
+            cs_top,
+            rho_top,
+            cp_bott,
+            cs_bott,
+            rho_bott,
+            b1,
+            b2,
+            b3,
+            b4,
+            rho_arr,
+            first_acoustic,
+            last_acoustic,
+            mode,
+            False,
+            0,
+            xp=xp,
+        )
 
         ev_mat[iset, mode - 1] = x
     # ev_mat = xp.asarray(ev_mat[:, :m],copy=True)
@@ -878,21 +1039,48 @@ def solve1(args, h_v, xp):
     return ev_mat, m
 
 
-def solve2(args, h_v, M, xp):
+def solve2(
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    # N_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    # b1c,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    c_low,
+    c_high,
+    # elastic_flag,
+    first_acoustic,
+    last_acoustic,
+    h_v,
+    M,
+    xp,
+):
     """
     h_v is array of mesh sizes
     """
 
     max_iteration = 2000
 
-    (
+    args = (
         omega2,
         ev_mat,
         iset,
         h_arr,
         ind_arr,
         z_arr,
-        N_arr,
         cp_top,
         cs_top,
         rho_top,
@@ -900,17 +1088,13 @@ def solve2(args, h_v, M, xp):
         cs_bott,
         rho_bott,
         b1,
-        b1c,
         b2,
         b3,
         b4,
         rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
         first_acoustic,
         last_acoustic,
-    ) = args
+    )
     CountModes = False
     mode_count = 0  # doesn't matter
 
@@ -962,7 +1146,6 @@ def solve2(args, h_v, M, xp):
 
         # Discard modes outside user-specified spectrum
         if omega2 / c_high**2 > x:
-            # ev_mat = xp.asarray(ev_mat[:, :mode],copy=True)
             break
     return ev_mat, mode
 
@@ -983,17 +1166,16 @@ def root_finder_secant_real(x2, tolerance, max_iterations, func, args, xp):
         iteration (int): Number of iterations performed.
         error_message (str): Empty unless there was a failure to converge.
     """
-    error_message = ""
     if tolerance <= 0.0:
         return x2, 0, "Non-positive tolerance specified"
 
     x1 = x2 + 10.0 * tolerance
-    f1, i_power1, _ = func(x1, args, xp)
+    f1, i_power1, _ = func(x1, *args, xp)
 
     for iteration in range(1, max_iterations + 1):
         x0, f0, i_power0 = x1, f1, i_power1
         x1 = x2
-        f1, i_power1, _ = func(x1, args, xp)
+        f1, i_power1, _ = func(x1, *args, xp)
 
         c_num = f1 * (x1 - x0)
         c_den = f1 - f0 * 10.0 ** (i_power0 - i_power1)
@@ -1026,18 +1208,16 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
         iteration (int): Number of iterations performed.
         error_message (str): Empty unless there was a failure to converge.
     """
-    error_message = ""
-
     if tolerance <= 0.0:
         return x2, 0, "Non-positive tolerance specified"
 
     x1 = x2 + 100.0 * tolerance
-    f1, i_power1, _ = func(x1, args)
+    f1, i_power1, _ = func(x1, *args)
 
     for iteration in range(1, max_iterations + 1):
         x0, f0, i_power0 = x1, f1, i_power1
         x1 = x2
-        f1, i_power1, _ = func(x1, args)
+        f1, i_power1, _ = func(x1, *args)
 
         c_num = f1 * (x1 - x0)
         c_den = f1 - f0 * 10.0 ** (i_power0 - i_power1)
@@ -1055,7 +1235,34 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
     return x2, max_iterations, "Failure to converge in RootFinderSecant"
 
 
-def zbrent(a, b, t, args, xp):
+def zbrent(
+    a,
+    b,
+    t,
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    mode,
+    CountModes,
+    mode_count,
+    xp,
+):
     """
     Licensing:
 
@@ -1075,8 +1282,58 @@ def zbrent(a, b, t, args, xp):
 
     sa = a
     sb = b
-    fa, _, _ = funct(sa, args, xp)
-    fb, _, _ = funct(sb, args, xp)
+    fa, _, _ = funct(
+        sa,
+        omega2,
+        ev_mat,
+        iset,
+        h_arr,
+        ind_arr,
+        z_arr,
+        cp_top,
+        cs_top,
+        rho_top,
+        cp_bott,
+        cs_bott,
+        rho_bott,
+        b1,
+        b2,
+        b3,
+        b4,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        mode,
+        CountModes,
+        mode_count,
+        xp,
+    )
+    fb, _, _ = funct(
+        sb,
+        omega2,
+        ev_mat,
+        iset,
+        h_arr,
+        ind_arr,
+        z_arr,
+        cp_top,
+        cs_top,
+        rho_top,
+        cp_bott,
+        cs_bott,
+        rho_bott,
+        b1,
+        b2,
+        b3,
+        b4,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        mode,
+        CountModes,
+        mode_count,
+        xp,
+    )
 
     c = sa
     fc = fa
@@ -1140,7 +1397,32 @@ def zbrent(a, b, t, args, xp):
         else:
             sb = sb - tol
 
-        fb, _, _ = funct(sb, args, xp)
+        fb, _, _ = funct(
+            sb,
+            omega2,
+            ev_mat,
+            iset,
+            h_arr,
+            ind_arr,
+            z_arr,
+            cp_top,
+            cs_top,
+            rho_top,
+            cp_bott,
+            cs_bott,
+            rho_bott,
+            b1,
+            b2,
+            b3,
+            b4,
+            rho_arr,
+            first_acoustic,
+            last_acoustic,
+            mode,
+            CountModes,
+            mode_count,
+            xp,
+        )
 
         if (0.0 < fb and 0.0 < fc) or (fb <= 0.0 and fc <= 0.0):
             c = sa
@@ -1152,7 +1434,8 @@ def zbrent(a, b, t, args, xp):
     return value
 
 
-def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
+# @profile
+def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration: int = 5):
     """
     Perform inverse iteration to compute an eigenvector.
 
@@ -1165,6 +1448,7 @@ def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
     - eigenvector (numpy.ndarray): Approximated eigenvector (1D array of size N).
     - i_error (int): error flag (0 if successful, -1 if convergence fails).
     """
+    # TODO: SLOWEST FUNCTION SHOULD BE VECTORIZED or compiled
     # Initialize variables
     i_error = 0
     N = size(d)
@@ -1229,6 +1513,7 @@ def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
         # Compute norm of vector and test for convergence
         norm = xp.sum(xp.abs(eigenvector))
         if norm >= 1.0:
+            print(f"{iteration}")
             return eigenvector, i_error  # Convergence achieved
 
         # Scale the vector down
@@ -1250,41 +1535,36 @@ def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
     return eigenvector, i_error
 
 
-def normalize(phi, iTurningPoint, x, args, z, xp):
+def normalize(
+    phi,
+    iTurningPoint,
+    x,
+    omega2,
+    h_arr,
+    ind_arr,  # TODO: ind_arr are not the same between torch and numpy
+    z_arr,
+    Ng_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b1c,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    sigma_arr,
+    xp,
+):
     """
     Normalize the eigenvector phi and compute perturbations from attenuation and group velocity.
     """
-    # print('x', x)
-    (
-        omega2,
-        ev_mat,
-        iset,
-        h_arr,
-        ind_arr,
-        z_arr,
-        Ng_arr,
-        cp_top,
-        cs_top,
-        rho_top,
-        cp_bott,
-        cs_bott,
-        rho_bott,
-        b1,
-        b1c,
-        b2,
-        b3,
-        b4,
-        rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
-        first_acoustic,
-        last_acoustic,
-        M,
-        sigma_arr,
-    ) = args
     mode_count = 0
-    count_modes = False
 
     # Initialization
     SqNorm = 0.0
@@ -1459,7 +1739,24 @@ def normalize(phi, iTurningPoint, x, args, z, xp):
     Perturbation_k = Perturbation_k * scale_factor**2
     ug = 1.0 / sg
 
-    scattering_k = scatterloss(args, w, x, xp)
+    scattering_k = scatterloss(
+        omega2,
+        h_arr,
+        ind_arr,  # TODO: ind_arr are not the same between torch and numpy
+        Ng_arr,
+        cp_top,
+        rho_top,
+        cp_bott,
+        rho_bott,
+        b1,
+        rho_arr,
+        first_acoustic,
+        last_acoustic,
+        sigma_arr,
+        w,
+        x,
+        xp,
+    )
 
     Perturbation_k = Perturbation_k + scattering_k
 
@@ -1504,42 +1801,30 @@ def kup_ing(sigma, eta1_sq, rho1, eta2_sq, rho2, P, U, xp):
         return ret
 
 
-def scatterloss(args, phi, x, xp):
+def scatterloss(
+    omega2,
+    h_arr,
+    ind_arr,
+    Ng_arr,
+    cp_top,
+    rho_top,
+    cp_bott,
+    rho_bott,
+    b1,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    sigma_arr,
+    phi,
+    x,
+    xp,
+):
     """
     perturbation_k - complex wavenumber, already includes volume attenuation from
     perturbation theory
     phi - mode shape
     x - eigenvalue
     """
-    (
-        omega2,
-        ev_mat,
-        iset,
-        h_arr,
-        ind_arr,
-        z_arr,
-        Ng_arr,
-        cp_top,
-        cs_top,
-        rho_top,
-        cp_bott,
-        cs_bott,
-        rho_bott,
-        b1,
-        b1c,
-        b2,
-        b3,
-        b4,
-        rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
-        first_acoustic,
-        last_acoustic,
-        M,
-        sigma_arr,
-    ) = args
-
     j = 0  # this index is for the phi depth grid which does not have doubled interface points
 
     scattering_perturbation_k = 0.0
@@ -1601,37 +1886,32 @@ def scatterloss(args, phi, x, xp):
     return scattering_perturbation_k
 
 
-def get_phi(args, xp):
-    (
-        omega2,
-        ev_mat,
-        iset,
-        h_arr,
-        ind_arr,
-        z_arr,
-        Ng_arr,
-        cp_top,
-        cs_top,
-        rho_top,
-        cp_bott,
-        cs_bott,
-        rho_bott,
-        b1,
-        b1c,
-        b2,
-        b3,
-        b4,
-        rho_arr,
-        c_low,
-        c_high,
-        elastic_flag,
-        first_acoustic,
-        last_acoustic,
-        M,
-        sigma_arr,
-    ) = args
-
-    CountModes = False
+def get_phi(
+    omega2,
+    ev_mat,
+    iset,
+    h_arr,
+    ind_arr,
+    z_arr,
+    Ng_arr,
+    cp_top,
+    cs_top,
+    rho_top,
+    cp_bott,
+    cs_bott,
+    rho_bott,
+    b1,
+    b1c,
+    b2,
+    b3,
+    b4,
+    rho_arr,
+    first_acoustic,
+    last_acoustic,
+    M,
+    sigma_arr,
+    xp,
+):
     mode_count = 0  # doesn't matter
 
     num_ac_layers = last_acoustic - first_acoustic + 1
@@ -1666,7 +1946,6 @@ def get_phi(args, xp):
         raise Exception("z.size != N_total1, check the implementation")
     phi = xp.zeros((size(z), M), dtype=xp.float64)
     pert_k_arr = xp.zeros(M, dtype=xp.complex128)
-    sgs_arr = xp.zeros(M, dtype=xp.float64)
     ugs_arr = xp.zeros(M, dtype=xp.float64)
 
     for mode in range(1, M + 1):
@@ -1745,20 +2024,40 @@ def get_phi(args, xp):
             xp,
         )
 
-        # print('f_bott', f_bott)
-        # print('g_bott', g_bott)
-
         if g_bott == 0.0:
             d[N_total1 - 1] = 1.0
             e[N_total1 - 1] = 0.0
         else:
             d[N_total1 - 1] = d[j] / 2.0 - xp.real(f_bott / g_bott)
 
-        # for i in range(N_total1):
-        #    print('i, z[i], d[i], e[i]', i, z[i], d[i], e[i])
         w, i_error = inverse_iter(d, e, xp)
 
-        w, pert_k, sg, ug = normalize(w, iTurningPoint, x, args, z, xp=xp)
+        w, pert_k, sg, ug = normalize(
+            w,
+            iTurningPoint,
+            x,
+            omega2,
+            h_arr,
+            ind_arr,
+            z_arr,
+            Ng_arr,
+            cp_top,
+            cs_top,
+            rho_top,
+            cp_bott,
+            cs_bott,
+            rho_bott,
+            b1,
+            b1c,
+            b2,
+            b3,
+            b4,
+            rho_arr,
+            first_acoustic,
+            last_acoustic,
+            sigma_arr,
+            xp=xp,
+        )
 
         phi[:, mind] = w
         pert_k_arr[mind] = pert_k
@@ -1953,45 +2252,41 @@ def list_input_solve(
             c_high,
         )
 
-        # pack all this info into an asarray
-        args = (
-            omega2,
-            ev_mat,
-            iset,
-            h_arr,
-            ind_arr,
-            z_arr,
-            Ng_arr_i,
-            cp_top,
-            cs_top,
-            rho_top,
-            cp_bott,
-            cs_bott,
-            rho_bott,
-            b1,
-            b1c,
-            b2,
-            b3,
-            b4,
-            rho_arr,
-            c_low,
-            c_high,
-            elastic_flag,
-            first_acoustic,
-            last_acoustic,
-        )
-
         if iset == 0:
-            h_v = h_arr[0]
+            h_v = xpx.atleast_nd(xp.asarray(h_arr[0]), ndim=1)
         else:
-            if not xp.isclose(h_v[-1], h_arr[0] * Nv[iset] / Nv[iset - 1]):
+            if not xpx.isclose(h_v[-1], h_arr[0] * Nv[iset] / Nv[iset - 1]):
                 raise ValueError(
                     f"Mesh refinement factor mismatch: {h_v[-1]} != {h_arr[0] * Nv[iset]}"
                 )
             h_v = array_append(h_v, h_arr[0], namespace=xp)
 
         if iset <= 1 and (last_acoustic - first_acoustic + 1 == num_layers):
-            ev_mat, M = solve1(args, h_v, xp=xp)
+            ev_mat, M = solve1(
+                omega2,
+                ev_mat,
+                iset,
+                h_arr,
+                ind_arr,
+                z_arr,
+                Ng_arr_i,
+                cp_top,
+                cs_top,
+                rho_top,
+                cp_bott,
+                cs_bott,
+                rho_bott,
+                b1,
+                b2,
+                b3,
+                b4,
+                rho_arr,
+                c_low,
+                c_high,
+                first_acoustic,
+                last_acoustic,
+                xp=xp,
+            )
             if M == 0:
                 plt.figure()
                 for i in range(num_layers):
@@ -1999,14 +2294,63 @@ def list_input_solve(
                     plt.plot(cs_list[i], z_list[i])
                 plt.show()
         else:  # solve2
-            ev_mat, M = solve2(args, h_v, M, xp=xp)
+            ev_mat, M = solve2(
+                omega2,
+                ev_mat,
+                iset,
+                h_arr,
+                ind_arr,
+                z_arr,
+                cp_top,
+                cs_top,
+                rho_top,
+                cp_bott,
+                cs_bott,
+                rho_bott,
+                b1,
+                b2,
+                b3,
+                b4,
+                rho_arr,
+                c_low,
+                c_high,
+                first_acoustic,
+                last_acoustic,
+                h_v,
+                M,
+                xp=xp,
+            )
             if omega2 / c_high**2 > ev_mat[iset, M - 1]:
                 M -= 1
 
         # if iset == 0 get phi
         if iset == 0:
-            pargs = args + (M, sigma_arr)
-            z, phi, pert_k, ugs = get_phi(pargs, xp=xp)
+            z, phi, pert_k, ugs = get_phi(
+                omega2,
+                ev_mat,
+                iset,
+                h_arr,
+                ind_arr,
+                z_arr,
+                Ng_arr_i,
+                cp_top,
+                cs_top,
+                rho_top,
+                cp_bott,
+                cs_bott,
+                rho_bott,
+                b1,
+                b1c,
+                b2,
+                b3,
+                b4,
+                rho_arr,
+                first_acoustic,
+                last_acoustic,
+                M,
+                sigma_arr,
+                xp=xp,
+            )
 
         # print('iset', iset, 'M', M, ev_mat[iset, :M])
 

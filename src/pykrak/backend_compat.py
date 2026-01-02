@@ -1,11 +1,7 @@
-import inspect
-from functools import partial, wraps
 from types import ModuleType
 
 import array_api_extra as xpx
-import array_api_strict
 from array_api_compat import (
-    array_namespace,
     is_array_api_strict_namespace,
     is_numpy_namespace,
     is_torch_namespace,
@@ -13,9 +9,6 @@ from array_api_compat import (
     torch,
 )
 from array_api_compat.common._typing import Array
-from array_api_compat.torch import Tensor
-from jax._src.interpreters.batching import expand_dims_batcher
-from numba import jit
 
 
 def array_interp(x, xp, fp, namespace: ModuleType):
@@ -41,24 +34,7 @@ def array_append(arr: Array, values: float, namespace: ModuleType):
         return _array_append(arr, values, namespace)
 
 
-def array_trapezoid(y: Array, x: Array, namespace: ModuleType):
-    if is_numpy_namespace(namespace) or is_torch_namespace(namespace):
-        return namespace.trapezoid(y, x)
-    else:
-        return _array_trapezoid(y, x, namespace)
-
-
-def _array_trapezoid(y: Array, x: Array, namespace: ModuleType):
-    y = namespace.asarray(y)
-    x = namespace.asarray(x)
-    d = namespace.diff(x)
-    slice1 = slice(1, None)
-    slice2 = slice(None, -1)
-    ret = namespace.sum(d * (y[slice1] + y[slice2]) / 2.0, axis=0)
-    return ret
-
-
-def _array_append(arr: Array, values: float, namespace: ModuleType, dim=None):
+def _array_append(arr: Array, values: Array, namespace: ModuleType):
     return namespace.concat((arr, xpx.expand_dims(values, axis=0)))
 
 
@@ -173,29 +149,3 @@ def torch_interp(x: torch.Tensor, xp: torch.Tensor, fp: torch.Tensor) -> torch.T
     interp_values = torch.where(x > xp[-1], fp[-1] * torch.ones_like(x), interp_values)
 
     return interp_values.squeeze() if x.shape[0] == 1 and x.ndim == 1 else interp_values
-
-
-def xpjit(func):
-    @wraps(func)
-    def with_jit(*args, **kwargs):
-        # Extract xp from arguments
-        xp = kwargs.get("xp")
-        if xp is None:
-            # Check if xp is passed as positional arg
-            sig = inspect.signature(func)
-            param_names = list(sig.parameters.keys())
-            if "xp" in param_names:
-                args = list(args)
-                xp_index = param_names.index("xp")
-                xp = args[xp_index]
-            else:
-                raise ValueError(f"xp should be an argument of {func.__name__}")
-        # else:
-        #     kwargs.pop("xp")
-
-        if is_torch_namespace(xp):
-            # Return partial function with xp bound
-            return torch.compile(func)(*args, **kwargs)
-        return func(*args, **kwargs)
-
-    return with_jit
