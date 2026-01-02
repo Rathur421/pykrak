@@ -12,6 +12,7 @@ from math import inf, pi
 from types import ModuleType
 from typing import Literal
 
+import array_api_extra as xpx
 from array_api_compat import size
 from array_api_compat.common._helpers import array_namespace
 from array_api_compat.common._typing import Array
@@ -1934,10 +1935,10 @@ def get_phi(
             e[0] = 0.0
             z = z_layer
         else:
-            e = xp.concatenate(
+            e = xp.concat(
                 (e, 1.0 / h_rho * xp.ones(size(z_layer) - 1, dtype=xp.float64))
             )
-            z = xp.concatenate((z, z_layer[1:]))  # get rid of the doubled points
+            z = xp.concat((z, z_layer[1:]))  # get rid of the doubled points
 
     e = array_append(e, 1.0 / h_rho, namespace=xp)
     # Main loop: for each eigenvalue call InverseIteration to get eigenvector
@@ -2098,12 +2099,12 @@ def mesh_list_inputs(
             attns_arr = attns_arr_i
         else:
             ind_list.append(size(z_arr))
-            z_arr = xp.concatenate((z_arr, z_arr_i))
-            cp_arr = xp.concatenate((cp_arr, cp_arr_i))
-            cs_arr = xp.concatenate((cs_arr, cs_arr_i))
-            rho_arr = xp.concatenate((rho_arr, rho_arr_i))
-            attnp_arr = xp.concatenate((attnp_arr, attnp_arr_i))
-            attns_arr = xp.concatenate((attns_arr, attns_arr_i))
+            z_arr = xp.concat((z_arr, z_arr_i))
+            cp_arr = xp.concat((cp_arr, cp_arr_i))
+            cs_arr = xp.concat((cs_arr, cs_arr_i))
+            rho_arr = xp.concat((rho_arr, rho_arr_i))
+            attnp_arr = xp.concat((attnp_arr, attnp_arr_i))
+            attns_arr = xp.concat((attns_arr, attns_arr_i))
 
     # Now convert speeds to complex
     if xp.any(attnp_arr > 0):
