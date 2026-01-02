@@ -71,8 +71,8 @@ def get_attn_conv_factor(units="npm", *args, xp):
         if len(args) == 0:
             raise ValueError("Wavelength must be passed in if using dbplam")
         lam = args[0]
-        if size(xp.asarray(lam, dtype=xp.double)) > 1:  # array
-            out = xp.zeros(size(lam), dtype=xp.double)
+        if size(xp.asarray(lam, dtype=xp.float64)) > 1:  # array
+            out = xp.zeros(size(lam), dtype=xp.float64)
             lam[lam == 0] = 1.0
             out = 1 / 8.6858896 / lam
             return out

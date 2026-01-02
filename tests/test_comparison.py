@@ -6,6 +6,7 @@ Description:
 import warnings
 from pathlib import Path
 
+import array_api_extra as xpx
 import pytest
 from array_api_compat import size
 from matplotlib import pyplot as plt
@@ -89,7 +90,7 @@ def test_kr_comp(env: Path, backend):
             if (i_m < max_mode_idx) or (mode_num < max_mode_idx):
                 break
         try:
-            assert backend.isclose(
+            assert xpx.isclose(
                 krak_prt_k[i_m],
                 pk_krs[mode_num - 1],
                 atol=2 * backend.pi * freq / c_high * 1e-18,
@@ -125,7 +126,7 @@ def test_phi_comp(env: Path, plots_enabled, backend):
     krak_prt_k, mode_nums, vps, vgs = th.read_krs_from_prt_file(
         str(env.with_suffix(".prt")), verbose=False
     )
-    z = backend.asarray(modes.z, dtype=backend.double)
+    z = backend.asarray(modes.z, dtype=backend.float64)
 
     RMax = RMax * 1e3
 
@@ -153,7 +154,7 @@ def test_phi_comp(env: Path, plots_enabled, backend):
         freq, N_list, rmax=RMax, c_low=c_low, c_high=c_high
     )
 
-    phi_new = backend.zeros((size(z), pk_phi.shape[1]), dtype=backend.double)
+    phi_new = backend.zeros((size(z), pk_phi.shape[1]), dtype=backend.float64)
 
     for i in range(pk_phi.shape[1]):
         phi_new[:, i] = array_interp(z, phi_z, pk_phi[:, i], backend)
@@ -161,21 +162,19 @@ def test_phi_comp(env: Path, plots_enabled, backend):
     pk_phi = phi_new
     phi_z = z
 
-    max_mode_idx = None
     if modes.M != size(pk_krs):
         warnings.warn(
             f"Warning: Number of modes in kraken and pykrak do not match! {modes.M} != {size(pk_krs)} for envs {env}"
         )
-        max_mode_idx = min(modes.M, size(pk_krs))
+    max_mode_idx = min(modes.M, size(pk_krs))
 
     failures = {}
-    for i_m, (krak_phi_m, pk_phi_m) in enumerate(zip(krak_phi.real.T, pk_phi.T)):
-        if max_mode_idx is not None:
-            if i_m < max_mode_idx:
-                break
+    for i_m in range(min(modes.M, size(pk_krs))):
+        pk_phi_m = pk_phi[:, i_m]
+        krak_phi_m = krak_phi[:, i_m]
         try:
-            assert backend.allclose(
-                pk_phi_m, krak_phi_m, atol=1e-6
+            assert backend.all(
+                xpx.isclose(pk_phi_m, krak_phi_m, atol=1e-6)
             ), f"""Larger error on modal depth function for env {env.stem} at mode {i_m + 1}.
             """
             # Found kraken : {krak_prt_k[i_m]} | pykrak {pk_krs.real[mode_num - 1]}

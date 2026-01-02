@@ -18,7 +18,12 @@ from array_api_compat.common._typing import Array
 from matplotlib import pyplot as plt
 
 from pykrak import attn_pert as ap
-from pykrak.backend_compat import array_append, array_interp, finfo_precision
+from pykrak.backend_compat import (
+    array_append,
+    array_interp,
+    array_trapezoid,
+    finfo_precision,
+)
 
 
 def initialize(
@@ -29,11 +34,11 @@ def initialize(
     cp_arr: Array,
     cs_arr: Array,
     rho_arr: Array,
-    cp_top: float,
-    cs_top: float,
+    cp_top: complex,
+    cs_top: complex,
     rho_top: float,
-    cp_bott: float,
-    cs_bott: float,
+    cp_bott: complex,
+    cs_bott: complex,
     rho_bott: float,
     c_low: float,
     c_high: float,
@@ -75,22 +80,22 @@ def initialize(
     first_acoustic = -1
     last_acoustic = 0
     # convert float to array object
-    cp_top = xp.asarray(cp_top, dtype=xp.double)
-    cs_top = xp.asarray(cs_top, dtype=xp.double)
-    rho_top = xp.asarray(rho_top, dtype=xp.double)
-    cp_bott = xp.asarray(cp_bott, dtype=xp.double)
-    cs_bott = xp.asarray(cs_bott, dtype=xp.double)
-    rho_bott = xp.asarray(rho_bott, dtype=xp.double)
-    c_low = xp.asarray(c_low, dtype=xp.double)
-    c_high = xp.asarray(c_high, dtype=xp.double)
+    cp_top = xp.asarray(cp_top, dtype=xp.complex128)
+    cs_top = xp.asarray(cs_top, dtype=xp.complex128)
+    rho_top = xp.asarray(rho_top, dtype=xp.float64)
+    cp_bott = xp.asarray(cp_bott, dtype=xp.complex128)
+    cs_bott = xp.asarray(cs_bott, dtype=xp.complex128)
+    rho_bott = xp.asarray(rho_bott, dtype=xp.float64)
+    c_low = xp.asarray(c_low, dtype=xp.float64)
+    c_high = xp.asarray(c_high, dtype=xp.float64)
 
     # Allocate arrays
-    b1 = xp.zeros(n_points, dtype=xp.double)
-    b1c = xp.zeros(n_points, dtype=xp.double)
-    b2 = xp.zeros(n_points, dtype=xp.double)
-    b3 = xp.zeros(n_points, dtype=xp.double)
-    b4 = xp.zeros(n_points, dtype=xp.double)
-    rho_arr = xp.asarray(rho_arr, copy=True, dtype=xp.double)  # why???
+    b1 = xp.zeros(n_points, dtype=xp.float64)
+    b1c = xp.zeros(n_points, dtype=xp.float64)
+    b2 = xp.zeros(n_points, dtype=xp.float64)
+    b3 = xp.zeros(n_points, dtype=xp.float64)
+    b4 = xp.zeros(n_points, dtype=xp.float64)
+    rho_arr = xp.asarray(rho_arr, copy=True, dtype=xp.float64)  # why???
 
     # Process each medium
     for medium in range(Nmedia):
@@ -182,22 +187,22 @@ def get_f_g(
     xp: ModuleType,
 ):
     if rho == 0.0:  # Vacuum
-        f = xp.asarray(1.0, dtype=xp.double)
-        g = xp.asarray(0.0, dtype=xp.double)
-        yV = xp.asarray([f, g, 0.0, 0.0, 0.0], dtype=xp.double)
+        f = 1.0
+        g = 0.0
+        yV = xp.asarray([f, g, 0.0, 0.0, 0.0], dtype=xp.float64)
     elif rho == 1e10:  # Rigid
-        f = xp.asarray(0.0, dtype=xp.double)
-        g = xp.asarray(1.0, dtype=xp.double)
-        yV = xp.asarray([f, g, 0.0, 0.0, 0.0], dtype=xp.double)
+        f = 0.0
+        g = 1.0
+        yV = xp.asarray([f, g, 0.0, 0.0, 0.0], dtype=xp.float64)
     else:  # Acousto-elastic halfspace
-        if xp.real(xp.asarray(cs, dtype=xp.double)) > 0.0:
+        if xp.real(xp.asarray(cs, dtype=xp.complex128)) > 0.0:
             gammaS2 = x - (omega2 / xp.real(cs) ** 2)
             gammaP2 = x - (omega2 / xp.real(cp) ** 2)
             gammaS = xp.real(xp.sqrt(gammaS2))
             gammaP = xp.real(xp.sqrt(gammaP2))
             mu = rho * xp.real(cs) ** 2
 
-            yV = xp.zeros(5, dtype=xp.double)
+            yV = xp.zeros(5, dtype=xp.float64)
             yV[0] = (gammaS * gammaP - x) / mu
             yV[1] = ((gammaS2 + x) ** 2 - 4.0 * gammaS * gammaP * x) * mu
             yV[2] = 2.0 * gammaS * gammaP - gammaS2 - x
@@ -215,11 +220,11 @@ def get_f_g(
             )
             # print(f"{gammap = }")
             f = gammap
-            g = xp.asarray(rho, dtype=xp.double)
+            g = xp.asarray(rho, dtype=xp.float64)
             if not complex_flag:
-                f = xp.real(f)
-                g = xp.real(g)
-            yV = xp.asarray([1e10, 1e10, 1e10, 1e10, 1e10], dtype=xp.double)
+                f = xp.real(xp.asarray(f))
+                g = xp.real(xp.asarray(g))
+            yV = xp.asarray([1e10, 1e10, 1e10, 1e10, 1e10], dtype=xp.float64)
     return f, g, yV
 
 
@@ -267,7 +272,7 @@ def elastic_up(
     j = size(b1) - 1
     xb3 = x * b3[j] - rho_arr[j]
 
-    zV = xp.zeros(5, dtype=xp.double)
+    zV = xp.zeros(5, dtype=xp.float64)
     zV[0] = yV[0] - 0.5 * (b1[j] * yV[3] - b2[j] * yV[4])
     zV[1] = yV[1] - 0.5 * (-rho_arr[j] * yV[3] - xb3 * yV[4])
     zV[2] = yV[2] - 0.5 * (two_h * yV[3] + b4[j] * yV[4])
@@ -281,8 +286,8 @@ def elastic_up(
         # print('EUP, ii, j, Yv', ii, j, yV)
         # print('b1[j], b2[j], b3[j], b4[j], rho_arr[j]', b1[j], b2[j], b3[j], b4[j], rho_arr[j])
 
-        xV = xp.asarray(yV, copy=True, dtype=xp.double)
-        yV = xp.asarray(zV, copy=True, dtype=xp.double)
+        xV = xp.asarray(yV, copy=True, dtype=xp.float64)
+        yV = xp.asarray(zV, copy=True, dtype=xp.float64)
 
         xb3 = x * b3[j] - rho_arr[j]
 
@@ -355,7 +360,7 @@ def elastic_down(
     j = 0
     xb3 = x * b3[j] - rho_arr[0]
 
-    zV = xp.zeros(5, dtype=xp.double)
+    zV = xp.zeros(5, dtype=xp.float64)
     # print(yV.dtype, b1.dtype, b2.dtype, b3.dtype, b4.dtype, rho_arr.dtype)
     zV[0] = yV[0] + 0.5 * (b1[j] * yV[3] - b2[j] * yV[4])
     zV[1] = yV[1] + 0.5 * (-rho_arr[j] * yV[3] - xb3 * yV[4])
@@ -369,8 +374,8 @@ def elastic_down(
         j += 1
         # print('EDOwn, ii, j, Yv', ii, j, yV)
 
-        xV = xp.asarray(yV, copy=True, dtype=xp.double)
-        yV = xp.asarray(zV, copy=True, dtype=xp.double)
+        xV = xp.asarray(yV, copy=True, dtype=xp.float64)
+        yV = xp.asarray(zV, copy=True, dtype=xp.float64)
 
         xb3 = x * b3[j] - rho_arr[j]
 
@@ -498,8 +503,8 @@ def get_bc_impedance(
             g = Yv[1]
 
     if not complex_flag:
-        f = xp.real(f)
-        g = xp.real(g)
+        f = xp.real(xp.asarray(f))
+        g = xp.real(xp.asarray(g))
     return f, g, iPower, mode_count
 
 
@@ -650,8 +655,8 @@ def funct(x, args, xp):
     # print('x, f_bott, g_bott', x, f_bott, g_bott)
     f, g, iPower, mode_count = acoustic_layers(
         x,
-        f_bott.real,
-        g_bott.real,
+        xp.real(f_bott),
+        xp.real(g_bott),
         iPower,
         ind_arr,
         h_arr,
@@ -689,17 +694,17 @@ def funct(x, args, xp):
 
     # print('at top', f_top, g_top)
 
-    Delta = (f * g_top - g * f_top).real
+    Delta = xp.real(f * g_top - g * f_top)
     iPower = iPower + iPower_top
 
-    if g.real * Delta > 0.0:
+    if xp.real(g) * Delta > 0.0:
         mode_count = mode_count + 1
 
     # Deflate previous roots
     # NOTE: Modes are indexed from 1!
     # so the loop below deflates the previously found roots
 
-    if (mode > 1) and (len(ind_arr) > last_acoustic - first_acoustic + 1):
+    if (mode > 1) and (ind_arr.shape[0] > last_acoustic - first_acoustic + 1):
         for j in range(mode - 1):
             Delta = Delta / (x - ev_mat[iset, j])
 
@@ -722,8 +727,8 @@ def bisection(x_min, x_max, M, args, xp):
     max_bisections = 50
 
     # Initialize boundaries
-    x_l = x_min * xp.ones(M, dtype=xp.double)
-    x_r = x_max * xp.ones(M, dtype=xp.double)
+    x_l = x_min * xp.ones(M, dtype=xp.float64)
+    x_r = x_max * xp.ones(M, dtype=xp.float64)
 
     # Compute the initial number of modes at x_max
     count_modes = True
@@ -846,8 +851,8 @@ def solve1(args, h_v, xp):
     if m == 0:
         return ev_mat, m
 
-    n_total = N_arr[first_acoustic : last_acoustic + 1].sum()
-    if m > n_total / 5:
+    n_total = xp.sum(N_arr[first_acoustic : last_acoustic + 1])
+    if m * 5 > n_total:
         print(f"Approximate number of modes = {m}")
         print(
             "Warning in KRAKEN - Solve1 : Mesh too coarse to sample the modes adequately"
@@ -920,7 +925,7 @@ def solve2(args, h_v, M, xp):
         # use extrapolation to produce initial guess if possible
         if iset >= 1:
             p = xp.asarray(
-                ev_mat[:iset, imode], copy=True, dtype=xp.double
+                ev_mat[:iset, imode], copy=True, dtype=xp.float64
             )  # load previous mesh estimates
 
             if iset >= 2:  # extrapolation
@@ -1168,17 +1173,17 @@ def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
     norm = xp.sum(xp.abs(d)) + xp.sum(xp.abs(e[1:N]))
 
     # Small thresholds
-    eps3 = 100.0 * xp.finfo(xp.double).eps * norm
+    eps3 = 100.0 * xp.finfo(xp.float64).eps * norm
     uk = N
     eps4 = uk * eps3
-    uk = eps4 / xp.sqrt(xp.asarray(uk, dtype=xp.double))
+    uk = eps4 / xp.sqrt(xp.asarray(uk, dtype=xp.float64))
     # print('uk', uk)
 
     # Temporary arrays
-    rv1 = xp.zeros(N, dtype=xp.double)
-    rv2 = xp.zeros(N, dtype=xp.double)
-    rv3 = xp.zeros(N, dtype=xp.double)
-    rv4 = xp.zeros(N, dtype=xp.double)
+    rv1 = xp.zeros(N, dtype=xp.float64)
+    rv2 = xp.zeros(N, dtype=xp.float64)
+    rv3 = xp.zeros(N, dtype=xp.float64)
+    rv4 = xp.zeros(N, dtype=xp.float64)
 
     # elimination with interchanges
     xu = 1.0
@@ -1211,7 +1216,7 @@ def inverse_iter(d: Array, e: Array, xp: ModuleType, max_iteration=2000):
     rv3[N - 1] = 0.0
 
     # Initialize eigenvector
-    eigenvector = uk * xp.ones(N, dtype=xp.double)
+    eigenvector = uk * xp.ones(N, dtype=xp.float64)
 
     # Main loop of inverse iteration
     for iteration in range(max_iteration):
@@ -1630,7 +1635,9 @@ def get_phi(args, xp):
     mode_count = 0  # doesn't matter
 
     num_ac_layers = last_acoustic - first_acoustic + 1
-    N_total1 = xp.sum(Ng_arr[first_acoustic : last_acoustic + 1]) - (num_ac_layers) + 1
+    N_total1 = int(
+        xp.sum(Ng_arr[first_acoustic : last_acoustic + 1]) - (num_ac_layers) + 1
+    )
     # print('N_total1', N_total1)
 
     for Medium in range(first_acoustic, last_acoustic + 1):
@@ -1643,24 +1650,24 @@ def get_phi(args, xp):
             z_layer = z_arr[ind_arr[Medium] : ind_arr[Medium + 1]]
         # print('Nmedium', z_layer.size-1)
         if Medium == first_acoustic:
-            e = 1.0 / h_rho * xp.ones(size(z_layer), dtype=xp.double)
+            e = 1.0 / h_rho * xp.ones(size(z_layer), dtype=xp.float64)
             e[0] = 0.0
             z = z_layer
         else:
             e = xp.concatenate(
-                (e, 1.0 / h_rho * xp.ones(size(z_layer) - 1, dtype=xp.double))
+                (e, 1.0 / h_rho * xp.ones(size(z_layer) - 1, dtype=xp.float64))
             )
             z = xp.concatenate((z, z_layer[1:]))  # get rid of the doubled points
 
     e = array_append(e, 1.0 / h_rho, namespace=xp)
     # Main loop: for each eigenvalue call InverseIteration to get eigenvector
-    d = xp.zeros(size(z), dtype=xp.double)
+    d = xp.zeros(size(z), dtype=xp.float64)
     if size(z) != N_total1:
         raise Exception("z.size != N_total1, check the implementation")
-    phi = xp.zeros((size(z), M), dtype=xp.double)
+    phi = xp.zeros((size(z), M), dtype=xp.float64)
     pert_k_arr = xp.zeros(M, dtype=xp.complex128)
-    sgs_arr = xp.zeros(M, dtype=xp.double)
-    ugs_arr = xp.zeros(M, dtype=xp.double)
+    sgs_arr = xp.zeros(M, dtype=xp.float64)
+    ugs_arr = xp.zeros(M, dtype=xp.float64)
 
     for mode in range(1, M + 1):
         mind = mode - 1
@@ -1808,7 +1815,7 @@ def mesh_list_inputs(
         cs_arr = cs_arr + 1j * cs_imag_arr
 
     ind_arr = xp.asarray(ind_list, dtype=xp.int32)
-    h_arr = xp.asarray(h_list, dtype=xp.double)
+    h_arr = xp.stack(h_list)
 
     return h_arr, ind_arr, z_arr, cp_arr, cs_arr, rho_arr
 
@@ -1848,18 +1855,18 @@ def list_input_solve(
     Ng_list is number of mesh points as alist over layers
     """
     # initialize float has array of size (), to ensure compatibility with backend
-    cp_top = xp.asarray(cp_top, dtype=xp.double)
-    cs_top = xp.asarray(cs_top, dtype=xp.double)
-    rho_top = xp.asarray(rho_top, dtype=xp.double)
-    attnp_top = xp.asarray(attnp_top, dtype=xp.double)
-    attns_top = xp.asarray(attns_top, dtype=xp.double)
-    cp_bott = xp.asarray(cp_bott, dtype=xp.double)
-    cs_bott = xp.asarray(cs_bott, dtype=xp.double)
-    rho_bott = xp.asarray(rho_bott, dtype=xp.double)
-    attnp_bott = xp.asarray(attnp_bott, dtype=xp.double)
-    attns_bott = xp.asarray(attns_bott, dtype=xp.double)
+    cp_top = xp.asarray(cp_top, dtype=xp.float64)
+    cs_top = xp.asarray(cs_top, dtype=xp.float64)
+    rho_top = xp.asarray(rho_top, dtype=xp.float64)
+    attnp_top = xp.asarray(attnp_top, dtype=xp.float64)
+    attns_top = xp.asarray(attns_top, dtype=xp.float64)
+    cp_bott = xp.asarray(cp_bott, dtype=xp.float64)
+    cs_bott = xp.asarray(cs_bott, dtype=xp.float64)
+    rho_bott = xp.asarray(rho_bott, dtype=xp.float64)
+    attnp_bott = xp.asarray(attnp_bott, dtype=xp.float64)
+    attns_bott = xp.asarray(attns_bott, dtype=xp.float64)
     # First get a mesh
-    omega = xp.asarray(2 * pi * freq, dtype=xp.double)
+    omega = xp.asarray(2 * pi * freq, dtype=xp.float64)
     omega2 = omega**2
     num_layers = len(z_list)
     if len(Ng_list) == 0:  # no mesh specified
@@ -1894,10 +1901,10 @@ def list_input_solve(
 
     M_max = 5000
     M = M_max
-    Nv = xp.asarray([1, 2, 4, 8, 16], dtype=xp.int32)  # mesh refinement factors
+    Nv = [1, 2, 4, 8, 16]  # mesh refinement factors
     Nset = len(Nv)
-    ev_mat = xp.zeros((Nset, M_max), dtype=xp.double)  # real (for now)
-    extrap = xp.zeros((Nset, M_max), dtype=xp.double)
+    ev_mat = xp.zeros((Nset, M_max), dtype=xp.float64)  # real (for now)
+    extrap = xp.zeros((Nset, M_max), dtype=xp.float64)
     error = 1e10
 
     for iset in range(Nset):
@@ -1975,7 +1982,7 @@ def list_input_solve(
         )
 
         if iset == 0:
-            h_v = xp.asarray([h_arr[0]], dtype=xp.double)
+            h_v = h_arr[0]
         else:
             if not xp.isclose(h_v[-1], h_arr[0] * Nv[iset] / Nv[iset - 1]):
                 raise ValueError(
@@ -2003,7 +2010,7 @@ def list_input_solve(
 
         # print('iset', iset, 'M', M, ev_mat[iset, :M])
 
-        extrap[iset, :M] = xp.asarray(ev_mat[iset, :M], copy=True, dtype=xp.double)
+        extrap[iset, :M] = xp.asarray(ev_mat[iset, :M], copy=True, dtype=xp.float64)
 
         error = 1e10
 

@@ -58,7 +58,7 @@ class Modes:
             phi = self.get_phi()
         if M is None:
             M = self.M
-        phi_zr = self.xp.zeros((zr.size, M), dtype=xp.double)
+        phi_zr = self.xp.zeros((zr.size, M), dtype=xp.float64)
         phi_z = self.z
         for i in range(M):
             phi_zr[:, i] = self.xp.interp(zr, phi_z, phi[:, i])
