@@ -16,7 +16,6 @@ import array_api_extra as xpx
 from array_api_compat import size
 from array_api_compat.common._helpers import array_namespace
 from array_api_compat.common._typing import Array
-from matplotlib import pyplot as plt
 
 from pykrak import attn_pert as ap
 from pykrak.backend_compat import (
@@ -603,7 +602,6 @@ def funct(
     last_acoustic,
     mode,
     CountModes,
-    mode_count,
     xp,
 ):
     """
@@ -774,7 +772,6 @@ def bisection(
         last_acoustic,
         1,
         count_modes,
-        0,
         xp,
     )
     n_zeros_initial = mode_count
@@ -814,7 +811,6 @@ def bisection(
                     last_acoustic,
                     mode,
                     True,
-                    0,
                     xp,
                 )
                 n_zeros = mcount - n_zeros_initial
@@ -925,7 +921,6 @@ def solve1(
         last_acoustic,
         1,
         count_modes,
-        0,
         xp,
     )
     m = mode_count
@@ -955,7 +950,6 @@ def solve1(
         last_acoustic,
         1,
         count_modes,
-        0,
         xp,
     )
     m -= mode_count
@@ -1030,7 +1024,6 @@ def solve1(
             last_acoustic,
             mode,
             False,
-            0,
             xp=xp,
         )
 
@@ -1047,7 +1040,6 @@ def solve2(
     h_arr,
     ind_arr,
     z_arr,
-    # N_arr,
     cp_top,
     cs_top,
     rho_top,
@@ -1055,14 +1047,12 @@ def solve2(
     cs_bott,
     rho_bott,
     b1,
-    # b1c,
     b2,
     b3,
     b4,
     rho_arr,
     c_low,
     c_high,
-    # elastic_flag,
     first_acoustic,
     last_acoustic,
     h_v,
@@ -1097,7 +1087,6 @@ def solve2(
         last_acoustic,
     )
     CountModes = False
-    mode_count = 0  # doesn't matter
 
     # inital guess
     x = omega2 / c_low**2
@@ -1134,7 +1123,7 @@ def solve2(
         )
 
         # Use secant method to refine eigenvalue
-        margs = args + (mode, CountModes, mode_count)
+        margs = args + (mode, CountModes)
         x, iteration, error_message = root_finder_secant_real(
             x, tolerance, max_iteration, funct, margs, xp
         )
@@ -1261,7 +1250,6 @@ def zbrent(
     last_acoustic,
     mode,
     CountModes,
-    mode_count,
     xp,
 ):
     """
@@ -1306,7 +1294,6 @@ def zbrent(
         last_acoustic,
         mode,
         CountModes,
-        mode_count,
         xp,
     )
     fb, _, _ = funct(
@@ -1332,7 +1319,6 @@ def zbrent(
         last_acoustic,
         mode,
         CountModes,
-        mode_count,
         xp,
     )
 
@@ -1421,7 +1407,6 @@ def zbrent(
             last_acoustic,
             mode,
             CountModes,
-            mode_count,
             xp,
         )
 
@@ -2288,12 +2273,6 @@ def list_input_solve(
                 last_acoustic,
                 xp=xp,
             )
-            if M == 0:
-                plt.figure()
-                for i in range(num_layers):
-                    plt.plot(cp_list[i], z_list[i])
-                    plt.plot(cs_list[i], z_list[i])
-                plt.show()
         else:  # solve2
             ev_mat, M = solve2(
                 omega2,
