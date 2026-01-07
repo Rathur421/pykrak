@@ -67,18 +67,17 @@ def initialize(
 
     c_low is min phase speed
     c_high is max phase speed
-
-    There should be the same number of points
-
     """
     xp = array_namespace(h_arr, ind_arr, z_arr, cp_arr, cs_arr, rho_arr)
-    elastic_flag = False  # set to true if any media are elastic
-    c_min = inf
-    Nmedia = size(h_arr)  # number of layers
-    n_points = size(z_arr)  # z_arr contains the doubled interface depths
-    first_acoustic = -1
-    last_acoustic = 0
-    # convert float to array object
+
+    # Ensure immutability
+    h_arr = xp.asarray(h_arr, copy=True)
+    ind_arr = xp.asarray(ind_arr, copy=True)
+    z_arr = xp.asarray(z_arr, copy=True)
+    cp_arr = xp.asarray(cp_arr, copy=True, dtype=xp.complex128)
+    cs_arr = xp.asarray(cs_arr, copy=True, dtype=xp.complex128)
+    rho_arr = xp.asarray(rho_arr, copy=True, dtype=xp.float64)
+
     cp_top = xp.asarray(cp_top, dtype=xp.complex128)
     cs_top = xp.asarray(cs_top, dtype=xp.complex128)
     rho_top = xp.asarray(rho_top, dtype=xp.float64)
@@ -88,13 +87,19 @@ def initialize(
     c_low = xp.asarray(c_low, dtype=xp.float64)
     c_high = xp.asarray(c_high, dtype=xp.float64)
 
-    # Allocate arrays
-    b1 = xp.zeros(n_points, dtype=xp.float64)
-    b1c = xp.zeros(n_points, dtype=xp.float64)
-    b2 = xp.zeros(n_points, dtype=xp.float64)
-    b3 = xp.zeros(n_points, dtype=xp.float64)
-    b4 = xp.zeros(n_points, dtype=xp.float64)
-    rho_arr = xp.asarray(rho_arr, copy=True, dtype=xp.float64)  # why???
+    # Allocate new arrays
+    b1 = xp.zeros_like(z_arr, dtype=xp.float64)
+    b1c = xp.zeros_like(z_arr, dtype=xp.float64)
+    b2 = xp.zeros_like(z_arr, dtype=xp.float64)
+    b3 = xp.zeros_like(z_arr, dtype=xp.float64)
+    b4 = xp.zeros_like(z_arr, dtype=xp.float64)
+
+    elastic_flag = False  # set to true if any elastic layer
+    c_min = xp.inf
+    Nmedia = size(h_arr)
+    n_points = size(z_arr)
+    first_acoustic = -1
+    last_acoustic = 0
 
     # Process each medium
     for medium in range(Nmedia):
@@ -104,51 +109,87 @@ def initialize(
         else:
             Nii = size(z_arr[ii : ind_arr[medium + 1]])
 
-        # Load diagonals
-        if xp.real(cs_arr[ii]) == 0.0:  # Acoustic medium
-            c_min = min(c_min, xp.min(xp.real(cp_arr[ii : ii + Nii])))
+        cs_real = xp.real(cs_arr[ii : ii + Nii])
+        cp_real = xp.real(cp_arr[ii : ii + Nii])
+        cs_zero_mask = cs_real == 0.0  # mask of acoustic/elastic layers
+
+        # Acoustic layer
+        b1_ac = xp.where(
+            cs_zero_mask,
+            -2.0 + h_arr[medium] ** 2 * xp.real(omega2 / (cp_arr[ii : ii + Nii]) ** 2),
+            b1[ii : ii + Nii],
+        )
+        b1c_ac = xp.where(
+            cs_zero_mask,
+            xp.imag(omega2 / (cp_arr[ii : ii + Nii]) ** 2 + 0j),
+            b1c[ii : ii + Nii],
+        )
+        b1 = xp.concatenate([b1[:ii], b1_ac, b1[ii + Nii :]])
+        b1c = xp.concatenate([b1c[:ii], b1c_ac, b1c[ii + Nii :]])
+
+        # Elastic layer
+        b1_el = xp.where(
+            ~cs_zero_mask,
+            2.0
+            * h_arr[medium]
+            / (rho_arr[ii : ii + Nii] * xp.real(cs_arr[ii : ii + Nii] ** 2)),
+            b1[ii : ii + Nii],
+        )
+        b2_el = xp.where(
+            ~cs_zero_mask,
+            2.0
+            * h_arr[medium]
+            / (rho_arr[ii : ii + Nii] * xp.real(cp_arr[ii : ii + Nii] ** 2)),
+            b2[ii : ii + Nii],
+        )
+        cs2 = xp.real(cs_arr[ii : ii + Nii] ** 2)
+        cp2 = xp.real(cp_arr[ii : ii + Nii] ** 2)
+        b3_el = xp.where(
+            ~cs_zero_mask,
+            4.0
+            * 2.0
+            * h_arr[medium]
+            * rho_arr[ii : ii + Nii]
+            * cs2
+            * (cp2 - cs2)
+            / cp2,
+            b3[ii : ii + Nii],
+        )
+        b4_el = xp.where(
+            ~cs_zero_mask,
+            2.0 * h_arr[medium] * (cp2 - 2.0 * cs2) / cp2,
+            b4[ii : ii + Nii],
+        )
+        b1 = xp.concatenate([b1[:ii], b1_el, b1[ii + Nii :]])
+        b2 = xp.concatenate([b2[:ii], b2_el, b2[ii + Nii :]])
+        b3 = xp.concatenate([b3[:ii], b3_el, b3[ii + Nii :]])
+        b4 = xp.concatenate([b4[:ii], b4_el, b4[ii + Nii :]])
+
+        # Update c_min
+        c_min = min(
+            c_min, xp.min(xp.where(cs_zero_mask, xp.min(cp_real), xp.min(cs_real)))
+        )
+
+        # Update elastic flag
+        elastic_flag |= xp.any(~cs_zero_mask)
+
+        # Update first/last acoustic indices
+        if xp.any(cs_zero_mask):
             if first_acoustic == -1:
                 first_acoustic = medium
             last_acoustic = medium
-            b1[ii : ii + Nii] = -2.0 + h_arr[medium] ** 2 * xp.real(
-                omega2 / (cp_arr[ii : ii + Nii]) ** 2
-            )
-            b1c[ii : ii + Nii] = xp.imag(
-                omega2 / (cp_arr[ii : ii + Nii]) ** 2
-                + 0j  # HACK: ensure type is complex (not implemented in torch)
-            )
 
-        else:  # Elastic medium
-            elastic_flag = True
-            two_h = 2.0 * h_arr[medium]
-            for j in range(ii, ii + Nii):
-                c_min = min(xp.real(cs_arr[j]), c_min)
-                cp2 = xp.real(cp_arr[j] ** 2)
-                cs2 = xp.real(cs_arr[j] ** 2)
-                b1[j] = two_h / (rho_arr[j] * cs2)
-                b2[j] = two_h / (rho_arr[j] * cp2)
-                b3[j] = 4.0 * two_h * rho_arr[j] * cs2 * (cp2 - cs2) / cp2
-                b4[j] = two_h * (cp2 - 2.0 * cs2) / cp2
-                rho_arr[j] *= two_h * omega2
-
-    if (rho_top == 0.0) or (
-        rho_top == 1e10
-    ):  # pressure or rigid, no need to overwrite c_high
-        pass
-    else:
-        if cs_top != 0.0:
+    # Top and bottom boundary checks
+    if rho_top not in (0.0, 1e10):
+        if cs_top != 0.0:  # Elastic medium
             elastic_flag = True
             c_min = min(c_min, xp.real(cs_top))
             c_high = min(c_high, xp.real(cs_top))
         else:
             c_min = min(c_min, xp.real(cp_top))
 
-    if (rho_bott == 0.0) or (
-        rho_bott == 1e10
-    ):  # pressure or rigid, no need to overwrite c_high
-        pass
-    else:
-        if cs_bott != 0.0:
+    if rho_bott not in (0.0, 1e10):
+        if cs_bott != 0.0:  # Elastic medium
             elastic_flag = True
             c_min = min(c_min, xp.real(cs_bott))
             c_high = min(c_high, xp.real(cs_bott))
