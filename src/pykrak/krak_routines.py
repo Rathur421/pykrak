@@ -856,21 +856,20 @@ def bisection(
                 )
                 n_zeros = mcount - n_zeros_initial
 
-                if n_zeros < mode:  # new right bdry
+                if n_zeros < mode:  # new right boundary
                     x2 = x
-                    x_r[mind] = x
-                else:  # new left bdry
+                    x_r = xp.where(xp.arange(M) == mind, x, x_r)
+                else:  # new left boundary
                     x1 = x
-                    if x_r[n_zeros] >= x:
-                        x_r[n_zeros] = x
-                    if x_l[n_zeros - 1] <= x:
-                        x_l[n_zeros - 1] = x
+                    condition_r = xp.arange(M) == n_zeros
+                    x_r = xp.where((condition_r) & (x_r >= x), x, x_r)
+                    condition_l = xp.arange(M) == (n_zeros - 1)
+                    x_l = xp.where((condition_l) & (x_l <= x), x, x_l)
 
                 if x_l[mode - 1] != x_min:
                     break
 
     return x_l, x_r
-
 
 def solve1(
     omega2,
