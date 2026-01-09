@@ -378,35 +378,36 @@ def elastic_down(
     two_h = 2.0 * h
     four_h_x = 4.0 * h * x
     j = 0
-    xb3 = x * b3[j] - rho_arr[0]
+    xb3 = x * b3 - rho_arr
 
-    zV = xp.zeros(5, dtype=xp.float64)
-    # print(yV.dtype, b1.dtype, b2.dtype, b3.dtype, b4.dtype, rho_arr.dtype)
-    zV[0] = yV[0] + 0.5 * (b1[j] * yV[3] - b2[j] * yV[4])
-    zV[1] = yV[1] + 0.5 * (-rho_arr[j] * yV[3] - xb3 * yV[4])
-    zV[2] = yV[2] + 0.5 * (two_h * yV[3] + b4[j] * yV[4])
-    zV[3] = yV[3] + 0.5 * (xb3 * yV[0] + b2[j] * yV[1] - two_x * b4[j] * yV[2])
-    zV[4] = yV[4] + 0.5 * (rho_arr[j] * yV[0] - b1[j] * yV[1] - four_h_x * yV[2])
+    zV = xp.asarray(
+        [
+            yV[0] + 0.5 * (b1[j] * yV[3] - b2[j] * yV[4]),
+            yV[1] + 0.5 * (-rho_arr[j] * yV[3] - xb3[0] * yV[4]),
+            yV[2] + 0.5 * (two_h * yV[3] + b4[j] * yV[4]),
+            yV[3] + 0.5 * (xb3[0] * yV[0] + b2[j] * yV[1] - two_x * b4[j] * yV[2]),
+            yV[4] + 0.5 * (rho_arr[j] * yV[0] - b1[j] * yV[1] - four_h_x * yV[2]),
+        ]
+    )
 
     # Modified midpoint method
     N = size(b1)
-    for ii in range(N - 1):
-        j += 1
-        # print('EDOwn, ii, j, Yv', ii, j, yV)
-
+    for j in range(1, N):
         xV = xp.asarray(yV, copy=True, dtype=xp.float64)
         yV = xp.asarray(zV, copy=True, dtype=xp.float64)
 
-        xb3 = x * b3[j] - rho_arr[j]
-
-        zV[0] = xV[0] + (b1[j] * yV[3] - b2[j] * yV[4])
-        zV[1] = xV[1] + (-rho_arr[j] * yV[3] - xb3 * yV[4])
-        zV[2] = xV[2] + (two_h * yV[3] + b4[j] * yV[4])
-        zV[3] = xV[3] + (xb3 * yV[0] + b2[j] * yV[1] - two_x * b4[j] * yV[2])
-        zV[4] = xV[4] + (rho_arr[j] * yV[0] - b1[j] * yV[1] - four_h_x * yV[2])
+        zV = xp.asarray(
+            [
+                xV[0] + (b1[j] * yV[3] - b2[j] * yV[4]),
+                xV[1] + (-rho_arr[j] * yV[3] - xb3[j] * yV[4]),
+                xV[2] + (two_h * yV[3] + b4[j] * yV[4]),
+                xV[3] + (xb3[j] * yV[0] + b2[j] * yV[1] - two_x * b4[j] * yV[2]),
+                xV[4] + (rho_arr[j] * yV[0] - b1[j] * yV[1] - four_h_x * yV[2]),
+            ]
+        )
 
         # Scale if necessary
-        if ii != N - 1:
+        if j != N:
             if abs(zV[1]) < Floor:
                 zV *= Roof
                 yV *= Roof
@@ -418,8 +419,6 @@ def elastic_down(
 
     # Apply the standard filter at the terminal point
     yV = (xV + 2.0 * yV + zV) / 4.0
-
-    # print('Yv final', yV)
 
     return yV, iPower
 
