@@ -70,7 +70,6 @@ def initialize(
     """
     xp = array_namespace(h_arr, ind_arr, z_arr, cp_arr, cs_arr, rho_arr)
 
-    # Ensure immutability
     h_arr = xp.asarray(h_arr, copy=True)
     ind_arr = xp.asarray(ind_arr, copy=True)
     z_arr = xp.asarray(z_arr, copy=True)
@@ -109,75 +108,57 @@ def initialize(
         else:
             Nii = size(z_arr[ii : ind_arr[medium + 1]])
 
-        cs_real = xp.real(cs_arr[ii : ii + Nii])
-        cp_real = xp.real(cp_arr[ii : ii + Nii])
-        cs_zero_mask = cs_real == 0.0  # mask of acoustic/elastic layers
+        slice_medium = slice(ii, ii + Nii)
+        z_slice = z_arr[slice_medium]
+        cp_slice = cp_arr[slice_medium]
+        cs_slice = cs_arr[slice_medium]
+        rho_slice = rho_arr[slice_medium]
 
-        # Acoustic layer
-        b1_ac = xp.where(
-            cs_zero_mask,
-            -2.0 + h_arr[medium] ** 2 * xp.real(omega2 / (cp_arr[ii : ii + Nii]) ** 2),
-            b1[ii : ii + Nii],
-        )
-        b1c_ac = xp.where(
-            cs_zero_mask,
-            xp.imag(omega2 / (cp_arr[ii : ii + Nii]) ** 2 + 0j),
-            b1c[ii : ii + Nii],
-        )
-        b1 = xp.concatenate([b1[:ii], b1_ac, b1[ii + Nii :]])
-        b1c = xp.concatenate([b1c[:ii], b1c_ac, b1c[ii + Nii :]])
-
-        # Elastic layer
-        b1_el = xp.where(
-            ~cs_zero_mask,
-            2.0
-            * h_arr[medium]
-            / (rho_arr[ii : ii + Nii] * xp.real(cs_arr[ii : ii + Nii] ** 2)),
-            b1[ii : ii + Nii],
-        )
-        b2_el = xp.where(
-            ~cs_zero_mask,
-            2.0
-            * h_arr[medium]
-            / (rho_arr[ii : ii + Nii] * xp.real(cp_arr[ii : ii + Nii] ** 2)),
-            b2[ii : ii + Nii],
-        )
-        cs2 = xp.real(cs_arr[ii : ii + Nii] ** 2)
-        cp2 = xp.real(cp_arr[ii : ii + Nii] ** 2)
-        b3_el = xp.where(
-            ~cs_zero_mask,
-            4.0
-            * 2.0
-            * h_arr[medium]
-            * rho_arr[ii : ii + Nii]
-            * cs2
-            * (cp2 - cs2)
-            / cp2,
-            b3[ii : ii + Nii],
-        )
-        b4_el = xp.where(
-            ~cs_zero_mask,
-            2.0 * h_arr[medium] * (cp2 - 2.0 * cs2) / cp2,
-            b4[ii : ii + Nii],
-        )
-        b1 = xp.concatenate([b1[:ii], b1_el, b1[ii + Nii :]])
-        b2 = xp.concatenate([b2[:ii], b2_el, b2[ii + Nii :]])
-        b3 = xp.concatenate([b3[:ii], b3_el, b3[ii + Nii :]])
-        b4 = xp.concatenate([b4[:ii], b4_el, b4[ii + Nii :]])
-
-        # Update c_min
-        c_min = min(
-            c_min, xp.min(xp.where(cs_zero_mask, xp.min(cp_real), xp.min(cs_real)))
-        )
-
-        # Update elastic flag
-        elastic_flag |= xp.any(~cs_zero_mask)
-
-        # Update first/last acoustic indices
-        if xp.any(cs_zero_mask):
+        # Load diagonals
+        if xp.real(cs_slice[0]) == 0.0:  # Acoustic medium
+            c_min = min(c_min, xp.min(xp.real(cp_slice)))
             if first_acoustic == -1:
                 first_acoustic = medium
             last_acoustic = medium
+
+            # Vectorized operations for acoustic medium
+            h2 = h_arr[medium] ** 2
+            omega2_cp2 = omega2 / (cp_slice**2)
+            b1_new = -2.0 + h2 * xp.real(omega2_cp2)
+            b1c_new = xp.imag(omega2_cp2 + 0j)
+
+            # Update arrays
+            b1 = xp.concat([b1[:ii], b1_new, b1[ii + Nii :]])
+            b1c = xp.concat([b1c[:ii], b1c_new, b1c[ii + Nii :]])
+
+        else:  # Elastic medium
+            elastic_flag = True
+            two_h = 2.0 * h_arr[medium]
+
+            # Vectorized operations for elastic medium
+            c_min = min(xp.min(xp.real(cs_slice)), c_min)
+            cp2_slice = xp.real(cp_slice**2)
+            cs2_slice = xp.real(cs_slice**2)
+
+            b1_new = two_h / (rho_slice * cs2_slice)
+            b2_new = two_h / (rho_slice * cp2_slice)
+            b3_new = (
+                4.0
+                * two_h
+                * rho_slice
+                * cs2_slice
+                * (cp2_slice - cs2_slice)
+                / cp2_slice
+            )
+            b4_new = two_h * (cp2_slice - 2.0 * cs2_slice) / cp2_slice
+            rho_new = rho_slice * two_h * omega2
+
+            # Update arrays
+            b1 = xp.concat([b1[:ii], b1_new, b1[ii + Nii :]])
+            b2 = xp.concat([b2[:ii], b2_new, b2[ii + Nii :]])
+            b3 = xp.concat([b3[:ii], b3_new, b3[ii + Nii :]])
+            b4 = xp.concat([b4[:ii], b4_new, b4[ii + Nii :]])
+            rho_arr = xp.concat([rho_arr[:ii], rho_new, rho_arr[ii + Nii :]])
 
     # Top and bottom boundary checks
     if rho_top not in (0.0, 1e10):
