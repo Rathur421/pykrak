@@ -1,6 +1,9 @@
+from types import ModuleType
+from typing import Literal
+
 import numpy as np
 from array_api_compat import size
-from matplotlib import pyplot as plt
+from array_api_compat.common._typing import Array
 from numba import njit
 
 """
@@ -30,6 +33,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+AttenuationUnits = Literal["npm", "dbm", "dbplam", "dbpkmhz", "q"]
+
 
 @njit
 def get_c_imag_npm(c_real, attn_npm, omega):
@@ -37,63 +42,62 @@ def get_c_imag_npm(c_real, attn_npm, omega):
     return c_imag
 
 
-def get_c_imag(c_real, attn, attn_units, omega, xp):
-    if attn_units == "dbplam" or attn_units == "q":
-        lam = c_real / (omega / (2 * np.pi))
-        args = [lam]
-    elif attn_units == "dbpkmhz":
-        f = omega / (2 * np.pi)
-        args = [f]
-    else:
-        args = []
-
-    conv_factor = get_attn_conv_factor(attn_units, *args, xp=xp)
-    attn_npm = attn * conv_factor  # this is attenuation in nepers/meter
+def get_c_imag(
+    c_real: float | Array,
+    attn: float | Array,
+    attn_units: AttenuationUnits,
+    omega: float | Array,
+    xp: ModuleType,
+) -> float | Array:
+    conv_factor = get_attn_conv_factor(attn_units, omega, c_real=c_real, xp=xp)
+    attn_npm = attn * conv_factor
     c_imag = attn_npm * c_real**2 / omega
     return c_imag
 
 
-def get_attn_conv_factor(units="npm", *args, xp):
+def get_attn_conv_factor(
+    units: AttenuationUnits, omega: float | Array, c_real=None, xp: ModuleType = np
+) -> float | Array:
     """
-    Get conversion factor to get attnuation into correct units
-    Input -
-    units - string
-        options are npm, dbpm, dbplam, dbpkmhz, q
-    optional_args -
-        can be wavelength (in meters) for dbplam or for Q
-        can be frequency (in Hz) for dbpkmhz
+    Get conversion factor to convert attenuation into nepers/meter.
+
+    Parameters:
+        units : str
+            Options: 'npm', 'dbpm', 'dbplam', 'dbpkmhz', 'q'
+        omega : float or array-like
+            Angular frequency (rad/s)
+        c_real : float or array-like, optional
+            Real part of speed of light; required for 'dbplam' and 'q'
+        xp : module, optional
+            Array library (e.g., numpy,torch,jax.numpy)
+
+    Returns:
+        Conversion factor (float or array)
     """
     if units == "npm":
         return 1.0
     elif units == "dbpm":
         return 0.115
     elif units == "dbplam":
-        if len(args) == 0:
-            raise ValueError("Wavelength must be passed in if using dbplam")
-        lam = args[0]
-        if size(xp.asarray(lam, dtype=xp.float64)) > 1:  # array
-            out = xp.zeros(size(lam), dtype=xp.float64)
-            lam[lam == 0] = 1.0
-            out = 1 / 8.6858896 / lam
-            return out
-        else:
-            if lam == 0:
-                return 0.0
-            return 1 / 8.6858896 / lam
+        if c_real is None:
+            raise ValueError("c_real must be provided for 'dbplam'")
+        lam = c_real / (omega / (2 * xp.pi))
+        # Avoid division by zero
+        lam_safe = xp.where(lam == 0, 1.0, lam)
+        return 1.0 / (8.6858896 * lam_safe)
     elif units == "dbpkmhz":
-        f = args[0]
-        if len(args) == 0:
-            raise ValueError("Frequency must be passed in if using dbplam")
+        f = omega / (2 * xp.pi)
         return f / 8685.88960
     elif units == "q":
-        if len(args) == 0:
-            raise ValueError("Wavelength must be passed in if using dbplam")
-        lam = args[0]
-        return xp.pi / lam / Q
+        if c_real is None:
+            raise ValueError("c_real must be provided for 'q'")
+        lam = c_real / (omega / (2 * xp.pi))
+        return xp.pi / (
+            lam * Q
+        )  # HACK: Q must be defined globally? or should be passed in?
     else:
         raise ValueError(
-            "Invalid units passed in. options are npm, dbpm, dbplam, \
-                            dbpkmhz, q"
+            "Invalid units. Options: 'npm', 'dbpm', 'dbplam', 'dbpkmhz', 'q'"
         )
 
 
@@ -112,7 +116,7 @@ def alpha_layer_integral(phim_layer, k_sq_imag, rho, dz):
 
 
 def add_attn(omega, krs, phi, h_list, z_list, k_sq_list, rho_list, k_hs_sq, rho_hs):
-    """
+    r"""
     Use perturbation theory to update the waveumbers krs estimated from the media without
     attenuation
     Relevant equations from JKPS are eqn. 5.177, where D is the depth of the halfspace
