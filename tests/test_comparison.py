@@ -121,7 +121,6 @@ def test_phi_comp(env: Path, plots_enabled, backend):
     c_low, c_high = cint.Low, cint.High
 
     modes = rw.read_modes(**{"fname": str(env.with_suffix(".mod")), "freq": freq})
-    krak_phi = backend.asarray(modes.phi, dtype=backend.complex128)
 
     krak_prt_k, mode_nums, vps, vgs = th.read_krs_from_prt_file(
         str(env.with_suffix(".prt")), verbose=False
@@ -154,7 +153,8 @@ def test_phi_comp(env: Path, plots_enabled, backend):
         freq, N_list, rmax=RMax, c_low=c_low, c_high=c_high
     )
 
-    phi_new = backend.zeros((size(z), pk_phi.shape[1]), dtype=backend.float64)
+    krak_phi = backend.asarray(modes.phi, dtype=pk_phi.dtype)
+    phi_new = backend.zeros((size(z), pk_phi.shape[1]), dtype=krak_phi.dtype)
 
     for i in range(pk_phi.shape[1]):
         phi_new[:, i] = array_interp(z, phi_z, pk_phi[:, i], backend)
@@ -169,7 +169,7 @@ def test_phi_comp(env: Path, plots_enabled, backend):
     max_mode_idx = min(modes.M, size(pk_krs))
 
     failures = {}
-    for i_m in range(min(modes.M, size(pk_krs))):
+    for i_m in range(max_mode_idx):
         pk_phi_m = pk_phi[:, i_m]
         krak_phi_m = krak_phi[:, i_m]
         try:
