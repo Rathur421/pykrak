@@ -603,8 +603,7 @@ def acoustic_layers(
 def funct(
     x,
     omega2,
-    ev_mat,
-    iset,
+    ev_mat_iset,
     h_arr,
     ind_arr,
     z_arr,
@@ -633,7 +632,7 @@ def funct(
     obtained by shooting downwards from the top boundary through
     any surface elastic layers to the first acoustic medium interface)
 
-    ev_mat[i,j] is the jth mode for the ith mesh used in the richardson extrap.
+    ev_mat_iset[j] is the jth mode for the iset mesh used in the richardson extrap (i.e. ev_mat[iset]).
     iset is the current index of the mesh to use in ev_mat
 
     """
@@ -719,7 +718,7 @@ def funct(
 
     if (mode > 1) and (ind_arr.shape[0] > last_acoustic - first_acoustic + 1):
         for j in range(mode - 1):
-            Delta = Delta / (x - ev_mat[iset, j])
+            Delta = Delta / (x - ev_mat_iset[j])
 
             # Scale if necessary
             while xp.abs(Delta) < Floor and xp.abs(Delta) > 0.0:
@@ -773,8 +772,7 @@ def bisection(
     delta, i_power, mode_count = funct(
         x_max,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -812,8 +810,7 @@ def bisection(
                 delta, i_power, mcount = funct(
                     x,
                     omega2,
-                    ev_mat,
-                    iset,
+                    ev_mat[iset],
                     h_arr,
                     ind_arr,
                     z_arr,
@@ -921,8 +918,7 @@ def solve1(
     delta, i_power, mode_count = funct(
         x_min,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -950,8 +946,7 @@ def solve1(
     delta, i_power, mode_count = funct(
         x_max,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -1087,8 +1082,7 @@ def solve2(
 
     args = (
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -1294,8 +1288,7 @@ def zbrent(
     fa, _, _ = funct(
         sa,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -1319,8 +1312,7 @@ def zbrent(
     fb, _, _ = funct(
         sb,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat[iset],
         h_arr,
         ind_arr,
         z_arr,
@@ -1407,8 +1399,7 @@ def zbrent(
         fb, _, _ = funct(
             sb,
             omega2,
-            ev_mat,
-            iset,
+            ev_mat[iset],
             h_arr,
             ind_arr,
             z_arr,
