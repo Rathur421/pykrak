@@ -2075,8 +2075,17 @@ def mesh_list_inputs(
     xp,
 ):
     num_layers = len(z_list)
-    h_list = []
-    for i in range(num_layers):
+
+    z_arr = xp.linspace(z_list[0][0], z_list[0][-1], Ng_arr[0])
+    cp_arr = array_interp(z_arr, z_list[0], cp_list[0], namespace=xp)
+    cs_arr = array_interp(z_arr, z_list[0], cs_list[0], namespace=xp)
+    rho_arr = array_interp(z_arr, z_list[0], rho_list[0], namespace=xp)
+    attnp_arr = array_interp(z_arr, z_list[0], attnp_list[0], namespace=xp)
+    attns_arr = array_interp(z_arr, z_list[0], attns_list[0], namespace=xp)
+
+    ind_list = [0]
+    h_list = [z_arr[1] - z_arr[0]]
+    for i in range(1, num_layers):
         z_arr_i = xp.linspace(z_list[i][0], z_list[i][-1], Ng_arr[i])
         cp_arr_i = array_interp(z_arr_i, z_list[i], cp_list[i], namespace=xp)
         cs_arr_i = array_interp(z_arr_i, z_list[i], cs_list[i], namespace=xp)
@@ -2085,22 +2094,13 @@ def mesh_list_inputs(
         attns_arr_i = array_interp(z_arr_i, z_list[i], attns_list[i], namespace=xp)
         h_list.append(z_arr_i[1] - z_arr_i[0])
 
-        if i == 0:
-            ind_list = [0]
-            z_arr = z_arr_i
-            cp_arr = cp_arr_i
-            cs_arr = cs_arr_i
-            rho_arr = rho_arr_i
-            attnp_arr = attnp_arr_i
-            attns_arr = attns_arr_i
-        else:
-            ind_list.append(size(z_arr))
-            z_arr = xp.concat((z_arr, z_arr_i))
-            cp_arr = xp.concat((cp_arr, cp_arr_i))
-            cs_arr = xp.concat((cs_arr, cs_arr_i))
-            rho_arr = xp.concat((rho_arr, rho_arr_i))
-            attnp_arr = xp.concat((attnp_arr, attnp_arr_i))
-            attns_arr = xp.concat((attns_arr, attns_arr_i))
+        ind_list.append(size(z_arr))
+        z_arr = xp.concat((z_arr, z_arr_i))
+        cp_arr = xp.concat((cp_arr, cp_arr_i))
+        cs_arr = xp.concat((cs_arr, cs_arr_i))
+        rho_arr = xp.concat((rho_arr, rho_arr_i))
+        attnp_arr = xp.concat((attnp_arr, attnp_arr_i))
+        attns_arr = xp.concat((attns_arr, attns_arr_i))
 
     # Now convert speeds to complex
     if xp.any(attnp_arr > 0):
