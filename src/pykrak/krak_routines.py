@@ -736,8 +736,7 @@ def bisection(
     x_max: float,
     M: int,
     omega2: float,
-    ev_mat: Array,
-    iset: int,
+    ev_mat_iset: Array,
     h_arr: Array,
     ind_arr: Array,
     z_arr: Array,
@@ -772,7 +771,7 @@ def bisection(
     delta, i_power, mode_count = funct(
         x_max,
         omega2,
-        ev_mat[iset],
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -810,7 +809,7 @@ def bisection(
                 delta, i_power, mcount = funct(
                     x,
                     omega2,
-                    ev_mat[iset],
+                    ev_mat_iset,
                     h_arr,
                     ind_arr,
                     z_arr,
@@ -848,10 +847,10 @@ def bisection(
 
     return x_l, x_r
 
+
 def solve1(
     omega2: float,
-    ev_mat: Array,
-    iset: float,
+    ev_mat_iset: Array,
     h_arr: Array,
     ind_arr: Array,
     z_arr: Array,
@@ -918,7 +917,7 @@ def solve1(
     delta, i_power, mode_count = funct(
         x_min,
         omega2,
-        ev_mat[iset],
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -946,7 +945,7 @@ def solve1(
     delta, i_power, mode_count = funct(
         x_max,
         omega2,
-        ev_mat[iset],
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -970,7 +969,7 @@ def solve1(
     m -= mode_count
 
     if m == 0:
-        return ev_mat, m
+        return ev_mat_iset, m
 
     n_total = xp.sum(N_arr[first_acoustic : last_acoustic + 1])
     if m * 5 > n_total:
@@ -985,8 +984,7 @@ def solve1(
         x_max,
         m,
         omega2,
-        ev_mat,
-        iset,
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -1019,8 +1017,7 @@ def solve1(
             x2,
             eps,
             omega2,
-            ev_mat,
-            iset,
+            ev_mat_iset,
             h_arr,
             ind_arr,
             z_arr,
@@ -1042,10 +1039,10 @@ def solve1(
             xp=xp,
         )
 
-        ev_mat[iset, mode - 1] = x
+        ev_mat_iset[mode - 1] = x
     # ev_mat = xp.asarray(ev_mat[:, :m],copy=True)
     #
-    return ev_mat, m
+    return ev_mat_iset, m
 
 
 def solve2(
@@ -1240,31 +1237,30 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
 
 
 def zbrent(
-    a,
-    b,
-    t,
-    omega2,
-    ev_mat,
-    iset,
-    h_arr,
-    ind_arr,
-    z_arr,
-    cp_top,
-    cs_top,
-    rho_top,
-    cp_bott,
-    cs_bott,
-    rho_bott,
-    b1,
-    b2,
-    b3,
-    b4,
-    rho_arr,
-    first_acoustic,
-    last_acoustic,
-    mode,
-    CountModes,
-    xp,
+    a: float,
+    b: float,
+    t: float,
+    omega2: float,
+    ev_mat_iset: Array,
+    h_arr: Array,
+    ind_arr: Array,
+    z_arr: Array,
+    cp_top: float,
+    cs_top: float,
+    rho_top: float,
+    cp_bott: float,
+    cs_bott: float,
+    rho_bott: float,
+    b1: Array,
+    b2: Array,
+    b3: Array,
+    b4: Array,
+    rho_arr: Array,
+    first_acoustic: int,
+    last_acoustic: int,
+    mode: int,
+    CountModes: bool,
+    xp: ModuleType,
 ):
     """
     Licensing:
@@ -1288,7 +1284,7 @@ def zbrent(
     fa, _, _ = funct(
         sa,
         omega2,
-        ev_mat[iset],
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -1312,7 +1308,7 @@ def zbrent(
     fb, _, _ = funct(
         sb,
         omega2,
-        ev_mat[iset],
+        ev_mat_iset,
         h_arr,
         ind_arr,
         z_arr,
@@ -2063,15 +2059,15 @@ def get_phi(
 
 
 def mesh_list_inputs(
-    z_list,
-    cp_list,
-    cs_list,
-    rho_list,
-    attnp_list,
-    attns_list,
-    Ng_arr,
-    attn_units,
-    omega,
+    z_list: list[list[float]],
+    cp_list: list[list[float]],
+    cs_list: list[list[float]],
+    rho_list: list[list[float]],
+    attnp_list: list[list[float]],
+    attns_list: list[list[float]],
+    Ng_arr: list[int],
+    attn_units: ap.AttenuationUnits,
+    omega: float,
     xp,
 ):
     num_layers = len(z_list)
@@ -2259,10 +2255,9 @@ def list_input_solve(
             h_v = array_append(h_v, h_arr[0], namespace=xp)
 
         if iset <= 1 and (last_acoustic - first_acoustic + 1 == num_layers):
-            ev_mat, M = solve1(
+            ev_mat[iset], M = solve1(
                 omega2,
-                ev_mat,
-                iset,
+                ev_mat[iset],
                 h_arr,
                 ind_arr,
                 z_arr,
