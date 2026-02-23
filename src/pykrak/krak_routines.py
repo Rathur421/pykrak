@@ -1279,10 +1279,8 @@ def zbrent(
     """
     machep = 1e-16
 
-    sa = a
-    sb = b
     fa, _, _ = funct(
-        sa,
+        a,
         omega2,
         ev_mat_iset,
         h_arr,
@@ -1306,7 +1304,7 @@ def zbrent(
         xp,
     )
     fb, _, _ = funct(
-        sb,
+        b,
         omega2,
         ev_mat_iset,
         h_arr,
@@ -1330,22 +1328,22 @@ def zbrent(
         xp,
     )
 
-    c = sa
+    c = a
     fc = fa
-    e = sb - sa
+    e = b - a
     d = e
 
     while True:
         if abs(fc) < abs(fb):
-            sa = sb
-            sb = c
-            c = sa
+            a = b
+            b = c
+            c = a
             fa = fb
             fb = fc
             fc = fa
 
-        tol = 2.0 * machep * abs(sb) + t
-        m = 0.5 * (c - sb)
+        tol = 2.0 * machep * abs(b) + t
+        m = 0.5 * (c - b)
 
         if abs(m) <= tol or fb == 0.0:
             break
@@ -1357,14 +1355,14 @@ def zbrent(
         else:
             s = fb / fa
 
-            if sa == c:
+            if a == c:
                 p = 2.0 * m * s
                 q = 1.0 - s
 
             else:
                 q = fa / fc
                 r = fb / fc
-                p = s * (2.0 * m * q * (q - r) - (sb - sa) * (r - 1.0))
+                p = s * (2.0 * m * q * (q - r) - (b - a) * (r - 1.0))
                 q = (q - 1.0) * (r - 1.0) * (s - 1.0)
 
             if 0.0 < p:
@@ -1382,20 +1380,20 @@ def zbrent(
                 e = m
                 d = e
 
-        sa = sb
+        a = b
         fa = fb
 
         if tol < abs(d):
-            sb = sb + d
+            b = b + d
         elif 0.0 < m:
-            sb = sb + tol
+            b = b + tol
         else:
-            sb = sb - tol
+            b = b - tol
 
         fb, _, _ = funct(
-            sb,
+            b,
             omega2,
-            ev_mat[iset],
+            ev_mat_iset,
             h_arr,
             ind_arr,
             z_arr,
@@ -1418,12 +1416,12 @@ def zbrent(
         )
 
         if (0.0 < fb and 0.0 < fc) or (fb <= 0.0 and fc <= 0.0):
-            c = sa
+            c = a
             fc = fa
-            e = sb - sa
+            e = b - a
             d = e
 
-    value = sb
+    value = b
     return value
 
 
