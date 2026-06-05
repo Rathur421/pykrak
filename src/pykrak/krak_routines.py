@@ -1682,7 +1682,6 @@ def get_phi(args):
         w, i_error = inverse_iter(d, e)
         w, pert_k, sg, ug = normalize(w, iTurningPoint, x, args, z)
 
-        sg1 = np.trapz(w**2 / np.square(1500.0), z) * np.sqrt(omega2) / np.sqrt(x)
         phi[:, mind] = w
         pert_k_arr[mind] = pert_k
         ugs_arr[mind] = ug
