@@ -17,7 +17,7 @@ from pykrak import test_helpers as th
 
 env_test_files = list(
     map(
-        lambda x: Path("pykrak", "tests", "at_files", x),
+        lambda x: Path("tests", "at_files", x),
         [
             "ice",
             "atten",
