@@ -1007,9 +1007,10 @@ def solve1(
     # Refine each eigenvalue
     count_modes = False
     # print('m', m)
-    for mode in range(1, m + 1):
-        x1 = x_l[mode - 1]
-        x2 = x_r[mode - 1]
+    ev_mat_list = []
+    for i_m, mode in enumerate(range(1, m + 1)):
+        x1 = x_l[i_m]
+        x2 = x_r[i_m]
         eps = abs(x2) * 10.0 ** (2.0 - finfo_precision(x2.dtype, namespace=xp))
 
         x = zbrent(
@@ -1039,8 +1040,9 @@ def solve1(
             xp=xp,
         )
 
-        ev_mat_iset[mode - 1] = x
-    # ev_mat = xp.asarray(ev_mat[:, :m],copy=True)
+        ev_mat_list.append(x)
+        # ev_mat_iset[i_m] = x
+    ev_mat_iset = xp.asarray(ev_mat_list)
     #
     return ev_mat_iset, m
 
@@ -2253,7 +2255,7 @@ def list_input_solve(
             h_v = array_append(h_v, h_arr[0], namespace=xp)
 
         if iset <= 1 and (last_acoustic - first_acoustic + 1 == num_layers):
-            ev_mat[iset], M = solve1(
+            ev_mat_0, M = solve1(
                 omega2,
                 ev_mat[iset],
                 h_arr,
@@ -2277,6 +2279,7 @@ def list_input_solve(
                 last_acoustic,
                 xp=xp,
             )
+            ev_mat[iset, : size(ev_mat_0)] = ev_mat_0
         else:  # solve2
             ev_mat, M = solve2(
                 omega2,
