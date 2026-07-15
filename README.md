@@ -26,5 +26,5 @@ Some basic tests are implemented to compare the results of the modal parameters 
 ``` sh
 uv run pytest # run all the test suite
 uv run pytest --backend=xp # run with a specific backend (xp,np,torch,jax,dask,cupy)
-uv run pytest --plots # plot when test a test is failing for an environment
+uv run pytest --plots # plot when a test is failing for an environment
 ```
