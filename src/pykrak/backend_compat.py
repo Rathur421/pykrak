@@ -1,6 +1,5 @@
 from types import ModuleType
 
-import array_api_extra as xpx
 from array_api_compat import (
     is_array_api_strict_namespace,
     is_numpy_namespace,
@@ -35,7 +34,7 @@ def array_append(arr: Array, values: float, namespace: ModuleType):
 
 
 def _array_append(arr: Array, values: Array, namespace: ModuleType):
-    return namespace.concat((arr, xpx.expand_dims(values, axis=0)))
+    return namespace.concat((arr, namespace.expand_dims(values, axis=0)))
 
 
 def _array_interp(x: Array, xp: Array, fp: Array, namespace) -> Array:
