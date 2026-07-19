@@ -9,8 +9,8 @@ Institution: Scripps Institution of Oceanography, UC San Diego
 """
 
 import numpy as np
-from matplotlib import pyplot as plt
 from numba import njit
+
 from pykrak import attn_pert as ap
 
 
@@ -236,8 +236,6 @@ def elastic_up(
     N = b1.size
     for ii in range(N - 1):
         j -= 1
-        # print('EUP, ii, j, Yv', ii, j, yV)
-        # print('b1[j], b2[j], b3[j], b4[j], rho_arr[j]', b1[j], b2[j], b3[j], b4[j], rho_arr[j])
 
         xV = yV.copy()
         yV = zV.copy()
@@ -263,8 +261,6 @@ def elastic_up(
 
     # Apply the standard filter at the terminal point
     yV = (xV + 2.0 * yV + zV) / 4.0
-
-    # print('Yv final', yV)
 
     return yV, iPower
 
@@ -302,7 +298,6 @@ def elastic_down(
     xb3 = x * b3[j] - rho_arr[0]
 
     zV = np.zeros(5)
-    # print(yV.dtype, b1.dtype, b2.dtype, b3.dtype, b4.dtype, rho_arr.dtype)
     zV[0] = yV[0] + 0.5 * (b1[j] * yV[3] - b2[j] * yV[4])
     zV[1] = yV[1] + 0.5 * (-rho_arr[j] * yV[3] - xb3 * yV[4])
     zV[2] = yV[2] + 0.5 * (two_h * yV[3] + b4[j] * yV[4])
@@ -313,7 +308,6 @@ def elastic_down(
     N = b1.size
     for ii in range(N - 1):
         j += 1
-        # print('EDOwn, ii, j, Yv', ii, j, yV)
 
         xV = yV.copy()
         yV = zV.copy()
@@ -339,8 +333,6 @@ def elastic_down(
 
     # Apply the standard filter at the terminal point
     yV = (xV + 2.0 * yV + zV) / 4.0
-
-    # print('Yv final', yV)
 
     return yV, iPower
 
@@ -415,7 +407,6 @@ def get_bc_impedance(
                     "Yv is not initialized, need to use rigid halfspace when shooting up through elastic layers"
                 )
             for medium in range(h_arr.size - 1, last_acoustic, -1):
-                # print('medium', medium)
                 if medium == ind_arr.size - 1:
                     i0, i1 = (
                         ind_arr[medium],
@@ -482,7 +473,7 @@ def acoustic_layers(
     # Loop over successive acoustic media starting at the end and going up
     for Medium in range(last_acoustic, first_acoustic - 1, -1):
         hMedium = h_arr[Medium]
-        # print('hMedium', hMedium)
+
         if Medium == ind_arr.size - 1:
             z_layer = z_arr[ind_arr[Medium] :]
         else:
@@ -499,7 +490,7 @@ def acoustic_layers(
         p2 = (b1[ii] - h2k2) * g - 2.0 * hMedium * f * rhoMedium
 
         # Shoot (towards surface) through a single medium
-        for ii in range(ind_arr[Medium] + NMedium - 2, ind_arr[Medium]-1, -1):
+        for ii in range(ind_arr[Medium] + NMedium - 2, ind_arr[Medium] - 1, -1):
             p0 = p1
             p1 = p2
             p2 = (h2k2 - b1[ii]) * p1 - p0
@@ -592,7 +583,7 @@ def funct(x, args):
         mode_count,
         False,
     )
-    # print('x, f_bott, g_bott', x, f_bott, g_bott)
+
     f, g, iPower, mode_count = acoustic_layers(
         x,
         f_bott.real,
@@ -608,8 +599,7 @@ def funct(x, args):
         first_acoustic,
         last_acoustic,
     )
-    # print('after al', f, g)
-    # print('eig x, f, g, iPower after AcousticLayers = ', x, f, g, iPower)
+
     f_top, g_top, iPower_top, mode_count = get_bc_impedance(
         x,
         omega2,
@@ -630,8 +620,6 @@ def funct(x, args):
         mode_count,
         False,
     )
-
-    # print('at top', f_top, g_top)
 
     Delta = (f * g_top - g * f_top).real
     iPower = iPower + iPower_top
@@ -803,7 +791,7 @@ def solve1(args, h_v):
 
     # Refine each eigenvalue
     count_modes = False
-    # print('m', m)
+
     for mode in range(1, m + 1):
         x1 = x_l[mode - 1]
         x2 = x_r[mode - 1]
@@ -918,7 +906,6 @@ def root_finder_secant_real(x2, tolerance, max_iterations, func, args):
         iteration (int): Number of iterations performed.
         error_message (str): Empty unless there was a failure to converge.
     """
-    error_message = ""
     if tolerance <= 0.0:
         return x2, 0, "Non-positive tolerance specified"
 
@@ -962,8 +949,6 @@ def root_finder_secant_complex(x2, tolerance, max_iterations, func, args):
         iteration (int): Number of iterations performed.
         error_message (str): Empty unless there was a failure to converge.
     """
-    error_message = ""
-
     if tolerance <= 0.0:
         return x2, 0, "Non-positive tolerance specified"
 
@@ -1115,7 +1100,6 @@ def inverse_iter(d, e, max_iteration=2000):
     uk = N
     eps4 = uk * eps3
     uk = eps4 / np.sqrt(uk)
-    # print('uk', uk)
 
     # Temporary arrays
     rv1 = np.zeros(N)
@@ -1193,7 +1177,7 @@ def normalize(phi, iTurningPoint, x, args, z):
     """
     Normalize the eigenvector phi and compute perturbations from attenuation and group velocity.
     """
-    # print('x', x)
+
     (
         omega2,
         ev_mat,
@@ -1223,7 +1207,6 @@ def normalize(phi, iTurningPoint, x, args, z):
         sigma_arr,
     ) = args
     mode_count = 0
-    count_modes = False
 
     # Initialization
     SqNorm = 0.0
@@ -1248,7 +1231,6 @@ def normalize(phi, iTurningPoint, x, args, z):
         L += 1  # L is index of first value in layer
         rhoMedium = rho_arr[L]
         rho_omega_h2 = rhoMedium * omega2 * h_arr[Medium] ** 2
-        # print('rho, h', rhoMedium, h_arr[Medium])
 
         # Top interface
         SqNorm += 0.5 * h_arr[Medium] * phi[j] ** 2 / rhoMedium
@@ -1377,14 +1359,12 @@ def normalize(phi, iTurningPoint, x, args, z):
     if rn < 0.0:
         rn = -rn
 
-    # print('Rn', rn)
     scale_factor = 1 / np.sqrt(rn)
     if phi[iTurningPoint] < 0.0:
         scale_factor = -scale_factor
     w = phi * scale_factor
     sg = sg * scale_factor**2 * np.sqrt(omega2) / np.sqrt(x)
-    # print('ug before', 1/(sg_before* scale_factor**2 * np.sqrt(omega2) / np.sqrt(x)))
-    # print('ug afer', 1/sg)
+
     Perturbation_k = Perturbation_k * scale_factor**2
     ug = 1.0 / sg
 
@@ -1562,12 +1542,10 @@ def get_phi(args):
         M,
         sigma_arr,
     ) = args
-    CountModes = False
     mode_count = 0  # doesn't matter
 
     num_ac_layers = last_acoustic - first_acoustic + 1
     N_total1 = np.sum(Ng_arr[first_acoustic : last_acoustic + 1]) - (num_ac_layers) + 1
-    # print('N_total1', N_total1)
 
     for Medium in range(first_acoustic, last_acoustic + 1):
         h_rho = (
@@ -1577,7 +1555,7 @@ def get_phi(args):
             z_layer = z_arr[ind_arr[Medium] :]
         else:
             z_layer = z_arr[ind_arr[Medium] : ind_arr[Medium + 1]]
-        # print('Nmedium', z_layer.size-1)
+
         if Medium == first_acoustic:
             e = 1.0 / h_rho * np.ones(z_layer.size)
             e[0] = 0.0
@@ -1593,7 +1571,6 @@ def get_phi(args):
         raise Exception("z.size != N_total1, check the implementation")
     phi = np.zeros((z.size, M))
     pert_k_arr = np.zeros(M, dtype=np.complex128)
-    sgs_arr = np.zeros(M)
     ugs_arr = np.zeros(M)
 
     for mode in range(1, M + 1):
@@ -1633,7 +1610,7 @@ def get_phi(args):
         iTurningPoint = z.size - 1
         j = 0
         L = ind_arr[first_acoustic]
-        # print('d[0], e[0]', d[0], e[0])
+
         for Medium in range(first_acoustic, last_acoustic + 1):
             xh2 = x * h_arr[Medium] ** 2
             h_rho = h_arr[Medium] * rho_arr[L + 1]
@@ -1644,7 +1621,7 @@ def get_phi(args):
                 j += 1
                 L += 1
                 d[j] = (b1[L] - xh2) / h_rho
-                # print('d[j], e[j]', j, d[j], e[j])
+
                 if b1[L] - xh2 + 2.0 > 0.0:
                     iTurningPoint = min(j, iTurningPoint)
 
@@ -1668,8 +1645,6 @@ def get_phi(args):
             mode_count,
             False,
         )
-        # print('f_bott', f_bott)
-        # print('g_bott', g_bott)
 
         if g_bott == 0.0:
             d[N_total1 - 1] = 1.0
@@ -1677,8 +1652,6 @@ def get_phi(args):
         else:
             d[N_total1 - 1] = d[j] / 2.0 - np.real(f_bott / g_bott)
 
-        # for i in range(N_total1):
-        #    print('i, z[i], d[i], e[i]', i, z[i], d[i], e[i])
         w, i_error = inverse_iter(d, e)
         w, pert_k, sg, ug = normalize(w, iTurningPoint, x, args, z)
 
@@ -1790,7 +1763,6 @@ def list_input_solve(
             Ng_list.append(Nneeded)
 
     Ng_arr0 = np.array(Ng_list, dtype=np.int32)
-    # print('Ng_arr0', Ng_arr0)
 
     if attnp_top > 0:
         cp_top_imag = ap.get_c_imag(cp_top, attnp_top, attn_units, omega)
@@ -1900,12 +1872,6 @@ def list_input_solve(
 
         if iset <= 1 and (last_acoustic - first_acoustic + 1 == num_layers):
             ev_mat, M = solve1(args, h_v)
-            if M == 0:
-                plt.figure()
-                for i in range(num_layers):
-                    plt.plot(cp_list[i], z_list[i])
-                    plt.plot(cs_list[i], z_list[i])
-                plt.show()
         else:  # solve2
             ev_mat, M = solve2(args, h_v, M)
             if omega2 / c_high**2 > ev_mat[iset, M - 1]:
@@ -1915,8 +1881,6 @@ def list_input_solve(
         if iset == 0:
             pargs = args + (M, sigma_arr)
             z, phi, pert_k, ugs = get_phi(pargs)
-
-        # print('iset', iset, 'M', M, ev_mat[iset, :M])
 
         extrap[iset, :M] = ev_mat[iset, :M].copy()
 
